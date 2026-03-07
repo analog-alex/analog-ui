@@ -16,6 +16,14 @@ pub fn build(b: *std.Build) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
+
+    const window_demo = b.option(bool, "window_demo", "Run SDL window demo in main") orelse false;
+
+    const build_options = b.addOptions();
+    build_options.addOption(bool, "window_demo", window_demo);
+
+    const sdl3_headers = b.dependency("sdl3", .{});
+
     // It's also possible to define more custom flags to toggle optional features
     // of this build script using `b.option()`. All defined flags (including
     // target and optimize options) will be listed when running `zig build --help`
@@ -39,6 +47,14 @@ pub fn build(b: *std.Build) void {
         // Later on we'll use this module as the root module of a test executable
         // which requires us to specify a target.
         .target = target,
+    });
+
+    mod.addIncludePath(b.path("src/c"));
+    mod.addIncludePath(sdl3_headers.path("include"));
+    mod.addCSourceFiles(.{
+        .root = b.path("src/c"),
+        .files = &.{ "clay_impl.c", "stb_truetype_impl.c" },
+        .flags = &.{},
     });
 
     // Here we define an executable. An executable needs to have a root module
@@ -66,7 +82,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/main.zig"),
             // Target and optimization levels must be explicitly wired in when
             // defining an executable or library (in the root module), and you
-            // can also hardcode a specific target for an executable or library
+            // can also hardcode a target for an executable or library
             // definition if desireable (e.g. firmware for embedded devices).
             .target = target,
             .optimize = optimize,
@@ -82,6 +98,17 @@ pub fn build(b: *std.Build) void {
             },
         }),
     });
+
+    exe.root_module.addOptions("build_options", build_options);
+    exe.root_module.addIncludePath(sdl3_headers.path("include"));
+
+    if (window_demo) {
+        const sdl_dep = b.dependency("sdl", .{
+            .target = target,
+            .optimize = optimize,
+        });
+        exe.linkLibrary(sdl_dep.artifact("SDL3"));
+    }
 
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
@@ -135,12 +162,20 @@ pub fn build(b: *std.Build) void {
     // A run step that will run the second test executable.
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
+    // Test steps
+    const test_unit_step = b.step("test-unit", "Run unit tests");
+    test_unit_step.dependOn(&run_mod_tests.step);
+
     // A top level step for running all tests. dependOn can be called multiple
     // times and since the two run steps do not depend on one another, this will
     // make the two of them run in parallel.
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
+
+    // Format step
+    const fmt_step = b.step("fmt", "Format code");
+    fmt_step.dependOn(&b.addFmt(.{ .paths = &.{ "src", "build.zig" } }).step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
@@ -153,4 +188,36 @@ pub fn build(b: *std.Build) void {
     //
     // Lastly, the Zig build system is relatively simple and self-contained,
     // and reading its source code will allow you to master it.
+}
+
+pub const IntegrationOptions = struct {
+    with_sdl_headers: bool = true,
+    with_clay_and_stb_c_sources: bool = true,
+    with_sdl3_link: bool = false,
+};
+
+pub fn addTo(b: *std.Build, module: *std.Build.Module, opts: IntegrationOptions) void {
+    if (opts.with_sdl_headers) {
+        const sdl3_headers = b.dependency("sdl3", .{});
+        module.addIncludePath(sdl3_headers.path("include"));
+    }
+
+    if (opts.with_clay_and_stb_c_sources) {
+        module.addIncludePath(b.path("src/c"));
+        module.addCSourceFiles(.{
+            .root = b.path("src/c"),
+            .files = &.{ "clay_impl.c", "stb_truetype_impl.c" },
+            .flags = &.{},
+        });
+    }
+}
+
+pub fn link(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, opts: IntegrationOptions) void {
+    if (!opts.with_sdl3_link) return;
+
+    const sdl_dep = b.dependency("sdl", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    step.linkLibrary(sdl_dep.artifact("SDL3"));
 }

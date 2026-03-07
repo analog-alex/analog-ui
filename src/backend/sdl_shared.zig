@@ -1,0 +1,43 @@
+pub const c = @cImport({
+    @cInclude("SDL3/SDL.h");
+});
+
+pub const SDL_Renderer = c.SDL_Renderer;
+pub const SDL_Texture = c.SDL_Texture;
+pub const SDL_Window = c.SDL_Window;
+pub const SDL_GPUDevice = c.SDL_GPUDevice;
+pub const SDL_GPUCommandBuffer = c.SDL_GPUCommandBuffer;
+pub const SDL_GPURenderPass = c.SDL_GPURenderPass;
+pub const SDL_GPUBuffer = c.SDL_GPUBuffer;
+pub const SDL_GPUGraphicsPipeline = c.SDL_GPUGraphicsPipeline;
+pub const SDL_Event = c.SDL_Event;
+pub const SDL_Rect = c.SDL_Rect;
+pub const SDL_FRect = c.SDL_FRect;
+
+pub const SDL_INIT_VIDEO = c.SDL_INIT_VIDEO;
+pub const SDL_WINDOW_RESIZABLE = c.SDL_WINDOW_RESIZABLE;
+pub const SDL_EVENT_QUIT = c.SDL_EVENT_QUIT;
+pub const SDL_TEXTUREACCESS_STATIC = c.SDL_TEXTUREACCESS_STATIC;
+pub const SDL_PIXELFORMAT_RGBA32 = c.SDL_PIXELFORMAT_RGBA32;
+pub const SDL_BLENDMODE_BLEND = c.SDL_BLENDMODE_BLEND;
+
+pub const SDL_Init = c.SDL_Init;
+pub const SDL_Quit = c.SDL_Quit;
+pub const SDL_GetError = c.SDL_GetError;
+pub const SDL_CreateWindow = c.SDL_CreateWindow;
+pub const SDL_DestroyWindow = c.SDL_DestroyWindow;
+pub const SDL_CreateRenderer = c.SDL_CreateRenderer;
+pub const SDL_DestroyRenderer = c.SDL_DestroyRenderer;
+pub const SDL_DestroyTexture = c.SDL_DestroyTexture;
+pub const SDL_CreateTexture = c.SDL_CreateTexture;
+pub const SDL_UpdateTexture = c.SDL_UpdateTexture;
+pub const SDL_SetTextureBlendMode = c.SDL_SetTextureBlendMode;
+pub const SDL_RenderCopy = c.SDL_RenderCopy;
+pub const SDL_RenderTexture = c.SDL_RenderTexture;
+pub const SDL_RenderFillRect = c.SDL_RenderFillRect;
+pub const SDL_RenderClear = c.SDL_RenderClear;
+pub const SDL_RenderPresent = c.SDL_RenderPresent;
+pub const SDL_SetRenderDrawColor = c.SDL_SetRenderDrawColor;
+pub const SDL_SetRenderClipRect = c.SDL_SetRenderClipRect;
+pub const SDL_PollEvent = c.SDL_PollEvent;
+pub const SDL_Delay = c.SDL_Delay;

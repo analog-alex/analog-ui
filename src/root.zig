@@ -1,23 +1,20 @@
-//! By convention, root.zig is the root source file when making a library.
-const std = @import("std");
+pub const Id = @import("core/ids.zig").Id;
+pub const InputState = @import("core/input.zig").InputState;
+pub const DrawList = @import("core/draw_list.zig").DrawList;
+pub const Context = @import("core/context.zig").Context;
+pub const Theme = @import("core/theme.zig").Theme;
+pub const Font = @import("font/font.zig").Font;
+pub const WidgetState = @import("core/widgets.zig").WidgetState;
+pub const button = @import("core/widgets.zig").button;
+pub const SdlEvent = @import("platform/sdl_events.zig").Event;
+pub const inputFromEvents = @import("platform/sdl_events.zig").fromEvents;
+pub const inputFromSdlEvents = @import("platform/sdl_events.zig").fromSdlEvents;
+pub const RendererBackend = @import("backend/sdl_renderer.zig").RendererBackend;
+pub const GpuBackend = @import("backend/sdl_gpu.zig").GpuBackend;
+pub const sdl = @import("backend/sdl_shared.zig");
+pub const version = @import("version.zig").version;
 
-pub fn bufferedPrint() !void {
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try stdout.flush(); // Don't forget to flush!
-}
-
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+test "root exports are available" {
+    const std = @import("std");
+    try std.testing.expect(@sizeOf(Id) == @sizeOf(u64));
 }
