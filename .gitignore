@@ -1,0 +1,40 @@
+# Zig build artifacts and caches
+.zig-cache/
+zig-out/
+
+# Zig local/global cache directories (defensive; usually outside repo)
+zig-cache/
+zig-global-cache/
+
+# Build/test outputs
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.wasm
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+
+# Editor/IDE
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
