@@ -1,5 +1,5 @@
 pub const c = @cImport({
-    @cInclude("clay.h");
+    @cInclude("clay/clay.h");
 });
 
 pub const Clay_Context = c.Clay_Context;

@@ -152,9 +152,11 @@ src/
     sdl_keys.zig
     sdl_gamepad.zig
 
-  c/
+vendor/
+  clay/
     clay.h
     clay_impl.c
+  truetype/
     stb_truetype.h
     stb_truetype_impl.c
 
@@ -1138,4 +1140,3 @@ It is a strong fit for:
 - settings screens,
 - in-game HUD,
 - controller-friendly game UI.
-

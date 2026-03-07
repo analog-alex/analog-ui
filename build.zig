@@ -14,17 +14,24 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const sdl_lib = sdl_dep.artifact("SDL3");
 
     const mod = b.addModule("analog_ui", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
     });
 
-    mod.addIncludePath(b.path("src/c"));
-    mod.addIncludePath(sdl_dep.path("include"));
+    mod.addIncludePath(b.path("vendor/truetype"));
+    mod.addIncludePath(b.path("vendor"));
+    mod.addIncludePath(sdl_lib.getEmittedIncludeTree());
     mod.addCSourceFiles(.{
-        .root = b.path("src/c"),
-        .files = &.{ "clay_impl.c", "stb_truetype_impl.c" },
+        .root = b.path("vendor/truetype"),
+        .files = &.{"stb_truetype_impl.c"},
+        .flags = &.{},
+    });
+    mod.addCSourceFiles(.{
+        .root = b.path("vendor/clay"),
+        .files = &.{"clay_impl.c"},
         .flags = &.{},
     });
 
@@ -41,10 +48,10 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addOptions("build_options", build_options);
-    exe.root_module.addIncludePath(sdl_dep.path("include"));
+    exe.root_module.addIncludePath(sdl_lib.getEmittedIncludeTree());
 
     if (window_demo) {
-        exe.linkLibrary(sdl_dep.artifact("SDL3"));
+        exe.linkLibrary(sdl_lib);
     }
 
     b.installArtifact(exe);

@@ -20,3 +20,8 @@ test "root exports are available" {
     const std = @import("std");
     try std.testing.expect(@sizeOf(Id) == @sizeOf(u64));
 }
+
+test "version is loaded correctly" {
+    const std = @import("std");
+    try std.testing.expectEqualStrings("0.0.0", version);
+}
