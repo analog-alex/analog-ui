@@ -52,6 +52,10 @@ fn runHeadlessDemo() !void {
 }
 
 fn runWindowDemo() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = gpa.allocator();
+
     if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO)) {
         std.debug.print("SDL_Init failed: {s}\n", .{sdl.SDL_GetError()});
         return error.SdlInitFailed;
@@ -70,6 +74,57 @@ fn runWindowDemo() !void {
         return error.SdlCreateRendererFailed;
     };
     defer sdl.SDL_DestroyRenderer(renderer);
+
+    const cwd = std.fs.cwd();
+    const regular_bytes = try cwd.readFileAlloc(alloc, "example_ttf/roboto/Roboto-Regular.ttf", std.math.maxInt(usize));
+    defer alloc.free(regular_bytes);
+    const bold_bytes = try cwd.readFileAlloc(alloc, "example_ttf/roboto/Roboto-Bold.ttf", std.math.maxInt(usize));
+    defer alloc.free(bold_bytes);
+    const italic_bytes = try cwd.readFileAlloc(alloc, "example_ttf/roboto/Roboto-Italic.ttf", std.math.maxInt(usize));
+    defer alloc.free(italic_bytes);
+    const bold_italic_bytes = try cwd.readFileAlloc(alloc, "example_ttf/roboto/Roboto-BoldItalic.ttf", std.math.maxInt(usize));
+    defer alloc.free(bold_italic_bytes);
+
+    var roboto_regular = try ui.Font.initTtf(alloc, .{
+        .ttf_bytes = regular_bytes,
+        .base_px = 24,
+        .charset = .ascii,
+        .dynamic_glyphs = true,
+    });
+    defer roboto_regular.deinit();
+    var roboto_bold = try ui.Font.initTtf(alloc, .{
+        .ttf_bytes = bold_bytes,
+        .base_px = 24,
+        .charset = .ascii,
+        .dynamic_glyphs = true,
+    });
+    defer roboto_bold.deinit();
+    var roboto_italic = try ui.Font.initTtf(alloc, .{
+        .ttf_bytes = italic_bytes,
+        .base_px = 24,
+        .charset = .ascii,
+        .dynamic_glyphs = true,
+    });
+    defer roboto_italic.deinit();
+    var roboto_bold_italic = try ui.Font.initTtf(alloc, .{
+        .ttf_bytes = bold_italic_bytes,
+        .base_px = 24,
+        .charset = .ascii,
+        .dynamic_glyphs = true,
+    });
+    defer roboto_bold_italic.deinit();
+
+    // Keep all Roboto styles loaded; the bold face is used for button text in this demo.
+    _ = &roboto_regular;
+    _ = &roboto_italic;
+    _ = &roboto_bold_italic;
+
+    var backend = try ui.RendererBackend.init(alloc, renderer);
+    defer backend.deinit();
+
+    const button_label = "Press Me";
+    const label_size = try roboto_bold.measure(button_label);
+    try backend.syncFont(&roboto_bold);
 
     var running = true;
     var frame: u32 = 0;
@@ -93,6 +148,27 @@ fn runWindowDemo() !void {
         var button = sdl.SDL_FRect{ .x = 360, .y = 300, .w = 240, .h = 64 };
         _ = sdl.SDL_SetRenderDrawColor(renderer, 74, 176, 214, 255);
         _ = sdl.SDL_RenderFillRect(renderer, &button);
+
+        var builder = ui.Builder.init(alloc);
+        defer builder.deinit();
+
+        const text_rect = ui.Rect{
+            .x = button.x,
+            .y = button.y + (button.h - label_size.height) * 0.5,
+            .w = button.w,
+            .h = label_size.height,
+        };
+        try builder.push(.{ .text_run = .{
+            .rect = text_rect,
+            .text = button_label,
+            .font_handle = 0,
+            .size_px = roboto_bold.base_px,
+            .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
+            .alignment = .center,
+        } });
+        const draw_list = try builder.finish();
+        defer alloc.free(draw_list.ops);
+        try backend.render(draw_list, .{});
 
         _ = sdl.SDL_RenderPresent(renderer);
         sdl.SDL_Delay(16);

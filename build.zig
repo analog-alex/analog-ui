@@ -17,7 +17,9 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const window_demo = b.option(bool, "window_demo", "Run SDL window demo in main") orelse false;
+    const window_demo_flag = b.option(bool, "window_demo", "Run SDL window demo in main") orelse false;
+    const windoow_demo_flag = b.option(bool, "windoow_demo", "Deprecated alias for -Dwindow_demo") orelse false;
+    const window_demo = window_demo_flag or windoow_demo_flag;
 
     const build_options = b.addOptions();
     build_options.addOption(bool, "window_demo", window_demo);
