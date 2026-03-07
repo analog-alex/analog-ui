@@ -52,15 +52,6 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-### Build helpers for host integration
-
-This package now exposes build helpers in `build.zig`:
-
-- `addTo(b, module, opts)` adds C sources/includes for Clay + stb
-- `link(b, step, target, optimize, opts)` optionally links SDL3 artifact
-
-Use them from your host build script only when needed. This keeps SDL linkage explicit.
-
 ## SDL3 lifetime and ownership
 
 `analog_ui` is designed so your app owns SDL lifecycle objects.
@@ -82,8 +73,6 @@ If your host app already links SDL3, keep linking SDL3 in the host executable on
 - Bad: host app links SDL3, and also forces a second SDL3 artifact path
 
 For this repository itself, SDL3 linking is only done for the local window demo (`-Dwindow_demo=true`).
-
-If your host app already links SDL3, keep `with_sdl3_link = false` in helper options.
 
 ## Notes
 

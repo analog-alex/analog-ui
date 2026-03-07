@@ -32,17 +32,9 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .clay = .{
-            .url = "https://github.com/nicbarker/clay/archive/refs/heads/main.tar.gz",
-            .hash = "N-V-__8AAMgPcwDno4v8eK99GevmM7BXvf-ESYT_fuxcRtQX",
-        },
-        .sdl3 = .{
-            .url = "https://github.com/libsdl-org/SDL/archive/refs/heads/main.tar.gz",
-            .hash = "N-V-__8AAJ9KBwNUJ9Nlc3TJsJT6YMxS46ZsxFTMh74NMaqt",
-        },
         .sdl = .{
-            .url = "https://github.com/Games-By-Mason/sdl_zig/archive/refs/heads/main.tar.gz",
-            .hash = "sdl-0.0.0-i4QD0WN-qQB1RKdRC9-6iZyTco2jIIr3y2DFrAz-D9CH",
+            .url = "https://github.com/allyourcodebase/SDL3/archive/refs/heads/main.tar.gz",
+            .hash = "sdl-0.0.0-i4QD0Up9qQCLBJcPR_YpCtGG1hSdL1QiD_OXw4uO5Pi1",
         },
     },
     .paths = .{
