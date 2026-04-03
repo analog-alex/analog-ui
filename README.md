@@ -52,6 +52,94 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
+## API Overview
+
+`analog_ui` is an immediate-mode GUI library powered by [Clay](https://github.com/Leo123458/clay) for layout, with custom vector rendering via `DrawList` ops.
+
+### Key Exports (`src/root.zig`)
+
+- **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
+- **Fonts**: `Font`
+- **Widgets**: `button(state: *WidgetState, id: Id, hovered: bool, input: InputState) bool`
+- **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
+- **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
+
+### Example Usage
+
+One-time setup (outside your frame loop):
+
+```zig
+const std = @import("std");
+const ui = @import("analog_ui");
+const sdl = ui.sdl;
+
+var backend = try ui.RendererBackend.init(alloc, renderer);
+defer backend.deinit();
+
+const ttf_bytes = try std.fs.cwd().readFileAlloc(alloc, "assets/Roboto-Bold.ttf", std.math.maxInt(usize));
+defer alloc.free(ttf_bytes);
+
+var font = try ui.Font.initTtf(alloc, .{
+    .ttf_bytes = ttf_bytes,
+    .base_px = 16,
+    .charset = .ascii,
+    .dynamic_glyphs = true,
+});
+defer font.deinit();
+```
+
+Per-frame pass (input -> widget logic -> draw list -> render):
+
+```zig
+fn pointInRect(r: ui.Rect, x: f32, y: f32) bool {
+    return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h;
+}
+
+fn renderFrame(
+    alloc: std.mem.Allocator,
+    backend: *ui.RendererBackend,
+    font: *ui.Font,
+    events: []const sdl.SDL_Event,
+    input: *ui.InputState,
+    widgets: *ui.WidgetState,
+) !void {
+    input.* = ui.inputFromSdlEvents(events, input.*);
+
+    const button_rect = ui.Rect{ .x = 48, .y = 40, .w = 220, .h = 56 };
+    const hovered = pointInRect(button_rect, input.mouse_pos.x, input.mouse_pos.y);
+    const button_id = ui.Id.fromStr("play_button");
+
+    if (ui.button(widgets, button_id, hovered, input.*)) {
+        std.debug.print("Play pressed\n", .{});
+    }
+
+    var builder = ui.Builder.init(alloc);
+    defer builder.deinit();
+
+    try builder.push(.{ .rect_filled = .{
+        .rect = button_rect,
+        .color = .{ .r = 0.16, .g = 0.49, .b = 0.76, .a = 1.0 },
+        .radius = 8,
+    } });
+    try builder.push(.{ .text_run = .{
+        .rect = button_rect,
+        .text = "Play",
+        .font_handle = 0,
+        .size_px = 16,
+        .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
+        .alignment = .center,
+    } });
+
+    const draw_list = try builder.finish();
+    defer alloc.free(draw_list.ops);
+
+    try backend.syncFont(font);
+    try backend.render(draw_list, .{ .dpi_scale = 1.0, .font_atlas_scale = 1.0 });
+}
+```
+
+See `src/demo/headless_demo.zig` and `src/demo/window_demo.zig` for full demos. Version: `0.0.0`.
+
 ## SDL3 lifetime and ownership
 
 `analog_ui` is designed so your app owns SDL lifecycle objects.

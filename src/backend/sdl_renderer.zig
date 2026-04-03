@@ -55,6 +55,138 @@ pub const RendererBackend = struct {
         return .{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
     }
 
+    fn fillFRect(self: *RendererBackend, rect: sdl.SDL_FRect) !void {
+        if (rect.w <= 0 or rect.h <= 0) return;
+        var mutable = rect;
+        if (!sdl.SDL_RenderFillRect(self.renderer, &mutable)) {
+            return error.SdlRendererError;
+        }
+    }
+
+    fn clampRoundRadius(rect: Rect, radius: f32) f32 {
+        const min_side = @min(rect.w, rect.h);
+        if (!std.math.isFinite(radius) or radius <= 0.0 or min_side <= 0.0) {
+            return 0.0;
+        }
+        return std.math.clamp(radius, 0.0, min_side * 0.5);
+    }
+
+    fn drawRoundedFilledRect(self: *RendererBackend, rect: Rect, radius: f32) !void {
+        if (rect.w <= 0 or rect.h <= 0) return;
+
+        const r = clampRoundRadius(rect, radius);
+        if (r <= 0.5) {
+            try self.fillFRect(toFRect(rect));
+            return;
+        }
+
+        const center_w = rect.w - 2.0 * r;
+        if (center_w > 0) {
+            try self.fillFRect(.{ .x = rect.x + r, .y = rect.y, .w = center_w, .h = rect.h });
+        }
+
+        const middle_h = rect.h - 2.0 * r;
+        if (middle_h > 0) {
+            try self.fillFRect(.{ .x = rect.x, .y = rect.y + r, .w = rect.w, .h = middle_h });
+        }
+
+        const steps: i32 = @max(1, @as(i32, @intFromFloat(@ceil(r))));
+        var yi: i32 = 0;
+        while (yi < steps) : (yi += 1) {
+            const sample_y = @as(f32, @floatFromInt(yi)) + 0.5;
+            if (sample_y > r) break;
+
+            const dy = r - sample_y;
+            const dx = @sqrt(@max(0.0, r * r - dy * dy));
+            const strip_x = rect.x + r - dx;
+            const strip_w = rect.w - 2.0 * (r - dx);
+            if (strip_w <= 0) continue;
+
+            const top_y = rect.y + @as(f32, @floatFromInt(yi));
+            const bottom_y = rect.y + rect.h - @as(f32, @floatFromInt(yi)) - 1.0;
+
+            try self.fillFRect(.{ .x = strip_x, .y = top_y, .w = strip_w, .h = 1.0 });
+            if (bottom_y > top_y) {
+                try self.fillFRect(.{ .x = strip_x, .y = bottom_y, .w = strip_w, .h = 1.0 });
+            }
+        }
+    }
+
+    fn drawRectStroke(self: *RendererBackend, rect: Rect, thickness: f32) !void {
+        const t = @max(thickness, 1.0);
+        try self.fillFRect(.{ .x = rect.x, .y = rect.y, .w = rect.w, .h = t });
+        try self.fillFRect(.{ .x = rect.x, .y = rect.y + rect.h - t, .w = rect.w, .h = t });
+        try self.fillFRect(.{ .x = rect.x, .y = rect.y, .w = t, .h = rect.h });
+        try self.fillFRect(.{ .x = rect.x + rect.w - t, .y = rect.y, .w = t, .h = rect.h });
+    }
+
+    fn drawRoundedStrokeRect(self: *RendererBackend, rect: Rect, thickness: f32, radius: f32) !void {
+        if (rect.w <= 0 or rect.h <= 0) return;
+
+        const t = @max(thickness, 1.0);
+        const r = clampRoundRadius(rect, radius);
+        if (r <= 0.5) {
+            try self.drawRectStroke(rect, t);
+            return;
+        }
+
+        const min_side = @min(rect.w, rect.h);
+        if (t >= min_side * 0.5) {
+            try self.drawRoundedFilledRect(rect, r);
+            return;
+        }
+
+        const inner_r = @max(r - t, 0.0);
+
+        const top_w = rect.w - 2.0 * r;
+        if (top_w > 0) {
+            try self.fillFRect(.{ .x = rect.x + r, .y = rect.y, .w = top_w, .h = t });
+            try self.fillFRect(.{ .x = rect.x + r, .y = rect.y + rect.h - t, .w = top_w, .h = t });
+        }
+
+        const side_h = rect.h - 2.0 * r;
+        if (side_h > 0) {
+            try self.fillFRect(.{ .x = rect.x, .y = rect.y + r, .w = t, .h = side_h });
+            try self.fillFRect(.{ .x = rect.x + rect.w - t, .y = rect.y + r, .w = t, .h = side_h });
+        }
+
+        const steps: i32 = @max(1, @as(i32, @intFromFloat(@ceil(r))));
+        var yi: i32 = 0;
+        while (yi < steps) : (yi += 1) {
+            const sample_y = @as(f32, @floatFromInt(yi)) + 0.5;
+            if (sample_y > r) break;
+
+            const dy = r - sample_y;
+            const outer_dx = @sqrt(@max(0.0, r * r - dy * dy));
+            const inner_dx = if (dy < inner_r)
+                @sqrt(@max(0.0, inner_r * inner_r - dy * dy))
+            else
+                0.0;
+
+            const left_outer = rect.x + r - outer_dx;
+            const left_inner = rect.x + r - inner_dx;
+            const right_inner = rect.x + rect.w - r + inner_dx;
+            const right_outer = rect.x + rect.w - r + outer_dx;
+
+            const top_y = rect.y + @as(f32, @floatFromInt(yi));
+            const bottom_y = rect.y + rect.h - @as(f32, @floatFromInt(yi)) - 1.0;
+
+            if (left_inner > left_outer) {
+                try self.fillFRect(.{ .x = left_outer, .y = top_y, .w = left_inner - left_outer, .h = 1.0 });
+                if (bottom_y > top_y) {
+                    try self.fillFRect(.{ .x = left_outer, .y = bottom_y, .w = left_inner - left_outer, .h = 1.0 });
+                }
+            }
+
+            if (right_outer > right_inner) {
+                try self.fillFRect(.{ .x = right_inner, .y = top_y, .w = right_outer - right_inner, .h = 1.0 });
+                if (bottom_y > top_y) {
+                    try self.fillFRect(.{ .x = right_inner, .y = bottom_y, .w = right_outer - right_inner, .h = 1.0 });
+                }
+            }
+        }
+    }
+
     fn toIRect(rect: Rect) sdl.SDL_Rect {
         return .{
             .x = @intFromFloat(rect.x),
@@ -159,20 +291,20 @@ pub const RendererBackend = struct {
         }
     }
 
-    fn drawGlyph(self: *RendererBackend, font: *const Font, codepoint: u21, x: *f32, baseline: f32, color: Color) !void {
+    fn drawGlyph(self: *RendererBackend, font: *const Font, codepoint: u21, x: *f32, baseline: f32, color: Color, inv_font_scale: f32) !void {
         const glyph = font.getGlyph(codepoint) orelse {
-            x.* += font.base_px * 0.55;
+            x.* += (font.base_px * 0.55) * inv_font_scale;
             return;
         };
 
         if (glyph.size_px[0] == 0 or glyph.size_px[1] == 0) {
-            x.* += glyph.advance_px;
+            x.* += glyph.advance_px * inv_font_scale;
             return;
         }
 
         const page_index: usize = glyph.atlas_page;
         if (page_index >= self.atlas_pages.items.len) {
-            x.* += glyph.advance_px;
+            x.* += glyph.advance_px * inv_font_scale;
             return;
         }
 
@@ -186,30 +318,36 @@ pub const RendererBackend = struct {
             .h = @as(f32, @floatFromInt(glyph.size_px[1])),
         };
         var dst = sdl.SDL_FRect{
-            .x = x.* + @as(f32, @floatFromInt(glyph.bearing_px[0])),
-            .y = baseline + @as(f32, @floatFromInt(glyph.bearing_px[1])),
-            .w = @as(f32, @floatFromInt(glyph.size_px[0])),
-            .h = @as(f32, @floatFromInt(glyph.size_px[1])),
+            .x = x.* + @as(f32, @floatFromInt(glyph.bearing_px[0])) * inv_font_scale,
+            .y = baseline + @as(f32, @floatFromInt(glyph.bearing_px[1])) * inv_font_scale,
+            .w = @as(f32, @floatFromInt(glyph.size_px[0])) * inv_font_scale,
+            .h = @as(f32, @floatFromInt(glyph.size_px[1])) * inv_font_scale,
         };
 
         if (!sdl.SDL_RenderTexture(self.renderer, texture_page.texture, &src, &dst)) {
             return error.SdlRendererError;
         }
 
-        x.* += glyph.advance_px;
+        x.* += glyph.advance_px * inv_font_scale;
     }
 
-    fn drawTextRun(self: *RendererBackend, rect: Rect, text: []const u8, alignment: TextAlign, color: Color) !void {
+    fn drawTextRun(self: *RendererBackend, rect: Rect, text: []const u8, alignment: TextAlign, color: Color, font_atlas_scale: f32) !void {
         const font = self.font orelse {
             return;
         };
 
+        const inv_font_scale = if (std.math.isFinite(font_atlas_scale) and font_atlas_scale > 0.0)
+            1.0 / font_atlas_scale
+        else
+            1.0;
+
         const measured = try font.measure(text);
+        const measured_width = measured.width * inv_font_scale;
         var pen_x = rect.x;
         switch (alignment) {
             .left => {},
-            .center => pen_x = rect.x + (rect.w - measured.width) * 0.5,
-            .right => pen_x = rect.x + (rect.w - measured.width),
+            .center => pen_x = rect.x + (rect.w - measured_width) * 0.5,
+            .right => pen_x = rect.x + (rect.w - measured_width),
         }
         var pen_y = rect.y;
 
@@ -217,15 +355,27 @@ pub const RendererBackend = struct {
         while (try it.nextCodepoint()) |cp| {
             if (cp == '\n') {
                 pen_x = rect.x;
-                pen_y += font.base_px * 1.2;
+                pen_y += (font.base_px * 1.2) * inv_font_scale;
                 continue;
             }
-            try self.drawGlyph(font, cp, &pen_x, pen_y, color);
+            try self.drawGlyph(font, cp, &pen_x, pen_y, color, inv_font_scale);
         }
     }
 
     pub fn render(self: *RendererBackend, draw_list: DrawList, opts: RenderOptions) !void {
-        _ = opts;
+        const dpi_scale = if (std.math.isFinite(opts.dpi_scale) and opts.dpi_scale > 0.0)
+            opts.dpi_scale
+        else
+            1.0;
+        const font_atlas_scale = if (std.math.isFinite(opts.font_atlas_scale) and opts.font_atlas_scale > 0.0)
+            opts.font_atlas_scale
+        else
+            1.0;
+        if (@hasDecl(sdl.c, "SDL_SetRenderScale")) {
+            if (!sdl.c.SDL_SetRenderScale(self.renderer, dpi_scale, dpi_scale)) {
+                return error.SdlRendererError;
+            }
+        }
 
         self.clip_stack.clearRetainingCapacity();
         try self.applyTopClip();
@@ -242,23 +392,14 @@ pub const RendererBackend = struct {
                 },
                 .rect_filled => |d| {
                     try self.setColor(d.color);
-                    var rect = toFRect(d.rect);
-                    if (!sdl.SDL_RenderFillRect(self.renderer, &rect)) return error.SdlRendererError;
+                    try self.drawRoundedFilledRect(d.rect, d.radius);
                 },
                 .rect_stroke => |d| {
                     try self.setColor(d.color);
-                    const t = @max(d.thickness, 1.0);
-                    var top = sdl.SDL_FRect{ .x = d.rect.x, .y = d.rect.y, .w = d.rect.w, .h = t };
-                    var bottom = sdl.SDL_FRect{ .x = d.rect.x, .y = d.rect.y + d.rect.h - t, .w = d.rect.w, .h = t };
-                    var left = sdl.SDL_FRect{ .x = d.rect.x, .y = d.rect.y, .w = t, .h = d.rect.h };
-                    var right = sdl.SDL_FRect{ .x = d.rect.x + d.rect.w - t, .y = d.rect.y, .w = t, .h = d.rect.h };
-                    if (!sdl.SDL_RenderFillRect(self.renderer, &top)) return error.SdlRendererError;
-                    if (!sdl.SDL_RenderFillRect(self.renderer, &bottom)) return error.SdlRendererError;
-                    if (!sdl.SDL_RenderFillRect(self.renderer, &left)) return error.SdlRendererError;
-                    if (!sdl.SDL_RenderFillRect(self.renderer, &right)) return error.SdlRendererError;
+                    try self.drawRoundedStrokeRect(d.rect, d.thickness, d.radius);
                 },
                 .text_run => |d| {
-                    try self.drawTextRun(d.rect, d.text, d.alignment, d.color);
+                    try self.drawTextRun(d.rect, d.text, d.alignment, d.color, font_atlas_scale);
                 },
                 .image => |d| {
                     const tex_ptr = @as(?*sdl.SDL_Texture, if (d.image_id == 0) null else @ptrFromInt(d.image_id));
@@ -279,4 +420,10 @@ pub const RendererBackend = struct {
 test "toU8 converts normalized and byte-range colors" {
     try std.testing.expectEqual(@as(u8, 255), RendererBackend.toU8(1.0));
     try std.testing.expectEqual(@as(u8, 128), RendererBackend.toU8(128.0));
+}
+
+test "clampRoundRadius clamps to half shortest side" {
+    const rect = Rect{ .x = 0, .y = 0, .w = 120, .h = 40 };
+    try std.testing.expectEqual(@as(f32, 20), RendererBackend.clampRoundRadius(rect, 999));
+    try std.testing.expectEqual(@as(f32, 0), RendererBackend.clampRoundRadius(rect, -4));
 }
