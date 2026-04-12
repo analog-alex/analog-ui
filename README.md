@@ -1,6 +1,6 @@
 # analog_ui
 
-Backend-neutral Zig UI package using Clay, with SDL3 backend scaffolding.
+Backend-neutral Zig UI package using [Clay](https://github.com/nicbarker/clay), with SDL3 backend scaffolding.
 
 ## Status
 
@@ -54,7 +54,7 @@ pub fn build(b: *std.Build) void {
 
 ## API Overview
 
-`analog_ui` is an immediate-mode GUI library powered by [Clay](https://github.com/Leo123458/clay) for layout, with custom vector rendering via `DrawList` ops.
+`analog_ui` is an immediate-mode GUI library powered by [Clay](https://github.com/nicbarker/clay) for layout, with custom vector rendering via `DrawList` ops.
 
 ### Key Exports (`src/root.zig`)
 
@@ -164,5 +164,6 @@ For this repository itself, SDL3 linking is only done for the local window demo 
 
 ## Notes
 
+- Clay is developed upstream at [nicbarker/clay](https://github.com/nicbarker/clay).
 - Clay and stb implementations are compiled as C sources through the `analog_ui` module.
 - API is still evolving toward the full v1 scope in the design document.
