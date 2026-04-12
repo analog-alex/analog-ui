@@ -56,6 +56,8 @@ pub fn build(b: *std.Build) void {
 
 `analog_ui` is an immediate-mode GUI library powered by [Clay](https://github.com/nicbarker/clay) for layout, with custom vector rendering via `DrawList` ops.
 
+`DrawList` semantics, ownership, and backend responsibilities are documented in `docs/draw_list_contract.md`.
+
 ### Key Exports (`src/root.zig`)
 
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
