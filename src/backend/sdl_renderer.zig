@@ -363,6 +363,8 @@ pub const RendererBackend = struct {
     }
 
     pub fn render(self: *RendererBackend, draw_list: DrawList, opts: RenderOptions) !void {
+        try draw_list.validateContract();
+
         const dpi_scale = if (std.math.isFinite(opts.dpi_scale) and opts.dpi_scale > 0.0)
             opts.dpi_scale
         else

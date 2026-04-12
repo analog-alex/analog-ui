@@ -19,6 +19,7 @@ pub fn build(b: *std.Build) void {
     const mod = b.addModule("analog_ui", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
+        .link_libc = true,
     });
 
     mod.addIncludePath(b.path("vendor/truetype"));
