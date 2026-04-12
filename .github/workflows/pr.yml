@@ -1,0 +1,69 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: ['*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIG_VERSION: 0.15.1
+
+jobs:
+  lint-test-build:
+    name: Lint, Test and Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Cache Zig dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: ${{ runner.os }}-zig-${{ env.ZIG_VERSION }}-${{ hashFiles('build.zig.zon') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-${{ env.ZIG_VERSION }}-
+            ${{ runner.os }}-zig-
+
+      - name: Check version consistency
+        run: |
+          chmod +x ./check-version.sh
+          ./check-version.sh
+
+      - name: Check code formatting
+        run: |
+          zig fmt --check src build.zig
+          zig fmt --check build.zig.zon --zon
+
+      - name: Run tests
+        run: zig build test
+
+      - name: Build project
+        run: |
+          zig build
+          zig build -Doptimize=ReleaseSafe
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "All PR checks passed"
+          echo "- Version consistency: OK"
+          echo "- Formatting: OK"
+          echo "- Tests: OK"
+          echo "- Build: OK"

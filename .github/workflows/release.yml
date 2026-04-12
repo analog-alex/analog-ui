@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ZIG_VERSION: 0.15.1
+
+jobs:
+  validate-and-publish:
+    name: Validate Release and Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Cache Zig dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: ${{ runner.os }}-zig-${{ env.ZIG_VERSION }}-${{ hashFiles('build.zig.zon') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-${{ env.ZIG_VERSION }}-
+            ${{ runner.os }}-zig-
+
+      - name: Extract version from release tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: ${VERSION}"
+
+      - name: Verify release tag version format
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: release tag version '${VERSION}' is not semver (X.Y.Z)"
+            exit 1
+          fi
+          echo "Release tag semver is valid"
+
+      - name: Verify repository versions match release tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZON_VERSION="$(awk -F'"' '/\.version = "/ { print $2; exit }' build.zig.zon)"
+          SRC_VERSION="$(awk -F'"' '/pub const version = "/ { print $2; exit }' src/version.zig)"
+
+          echo "Release tag version: ${VERSION}"
+          echo "build.zig.zon version: ${ZON_VERSION}"
+          echo "src/version.zig version: ${SRC_VERSION}"
+
+          if [[ -z "${ZON_VERSION}" || -z "${SRC_VERSION}" ]]; then
+            echo "Error: failed to parse one or more repository version fields"
+            exit 1
+          fi
+
+          if [[ "${ZON_VERSION}" != "${SRC_VERSION}" ]]; then
+            echo "Error: build.zig.zon and src/version.zig versions do not match"
+            exit 1
+          fi
+
+          if [[ "${VERSION}" != "${ZON_VERSION}" ]]; then
+            echo "Error: release tag v${VERSION} does not match repository version ${ZON_VERSION}"
+            exit 1
+          fi
+
+          echo "Version consistency check passed"
+
+      - name: Check code formatting
+        run: |
+          zig fmt --check src build.zig
+          zig fmt --check build.zig.zon --zon
+
+      - name: Run tests
+        run: zig build test
+
+      - name: Build project
+        run: |
+          zig build
+          zig build -Doptimize=ReleaseSafe
+
+      - name: Generate release artifacts
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT_DIR="release-artifacts"
+          mkdir -p "${ARTIFACT_DIR}"
+
+          tar -czf "${ARTIFACT_DIR}/analog-ui-${VERSION}.tar.gz" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.zig-cache' \
+            --exclude='zig-out' \
+            src/ vendor/ docs/ build.zig build.zig.zon README.md LICENSE check-version.sh
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ steps.version.outputs.version }}
+          path: release-artifacts/
+          retention-days: 90
+
+      - name: Attach artifacts to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+
+          gh release upload "${TAG}" "release-artifacts/analog-ui-${VERSION}.tar.gz" --clobber
+
+      - name: Release summary
+        if: success()
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Release v${VERSION} published successfully"
+          echo "- Version consistency: OK"
+          echo "- Formatting: OK"
+          echo "- Tests: OK"
+          echo "- Build: OK"
+          echo "- Artifacts: analog-ui-${VERSION}.tar.gz"
