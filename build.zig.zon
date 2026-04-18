@@ -33,8 +33,8 @@
     // internet connectivity.
     .dependencies = .{
         .sdl = .{
-            .url = "https://github.com/allyourcodebase/SDL3/archive/0b37f2228cc52a7512a844b20f87b7061821c62e.tar.gz",
-            .hash = "sdl-1.0.1+3.4.4-i4QD0QCGqQC6Myg3SmNw5dry28oQHFOZW0V7aN7wIV3v",
+            .url = "https://github.com/analog-alex/SDL3/archive/dcd2071b43a8b6414c86f836509f0bd53893aeab.tar.gz",
+            .hash = "sdl-1.0.1+3.4.4-i4QD0QaGqQCoGdSd14CEH9an5ITJv6geISxaMFF2-RbI",
         },
     },
     .paths = .{
