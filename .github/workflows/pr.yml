@@ -13,7 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ZIG_VERSION: 0.15.1
+  ZIG_VERSION: 0.16.0
+  ZIG_GLOBAL_CACHE_DIR: ${{ github.workspace }}/.zig-global-cache
+  ZIG_LOCAL_CACHE_DIR: ${{ github.workspace }}/.zig-cache
 
 jobs:
   lint-test-build:
@@ -39,12 +41,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/zig
             .zig-cache
+            .zig-global-cache
           key: ${{ runner.os }}-zig-${{ env.ZIG_VERSION }}-${{ hashFiles('build.zig.zon') }}
           restore-keys: |
             ${{ runner.os }}-zig-${{ env.ZIG_VERSION }}-
             ${{ runner.os }}-zig-
+
+      - name: Create Zig cache directories
+        run: mkdir -p "${ZIG_LOCAL_CACHE_DIR}" "${ZIG_GLOBAL_CACHE_DIR}"
 
       - name: Check version consistency
         run: |

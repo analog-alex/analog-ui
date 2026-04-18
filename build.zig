@@ -52,7 +52,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addIncludePath(sdl_lib.getEmittedIncludeTree());
 
     if (window_demo) {
-        exe.linkLibrary(sdl_lib);
+        exe.root_module.linkLibrary(sdl_lib);
     }
 
     b.installArtifact(exe);

@@ -12,7 +12,7 @@ Build a high-performance Zig library that wraps Clay, loads fonts from TTF, rend
 - `SDL_Renderer`
 - `SDL_GPU`
 
-The library must target **Zig 0.15.x** and follow modern Zig library design practices: explicit allocators, minimal hidden work, strong error modeling, no ownership confusion, deterministic teardown, testability, and clear separation between platform, layout, font, and backend layers.
+The library must target **Zig 0.16.x** and follow modern Zig library design practices: explicit allocators, minimal hidden work, strong error modeling, no ownership confusion, deterministic teardown, testability, and clear separation between platform, layout, font, and backend layers.
 
 ---
 
@@ -65,7 +65,7 @@ This library will provide a reusable Zig-native integration layer that:
 ## 3. External Constraints and Design Implications
 
 ### Zig version
-The current latest stable Zig release is **0.15.2**, published on **2025-10-11**, and Zig 0.15.1 is also available. Designing for Zig 0.15.x is appropriate and up to date. citeturn1view0
+The project targets **Zig 0.16.x**. Keep `build.zig.zon` and CI pinned to a concrete 0.16 patch version to ensure reproducible builds.
 
 ### Clay constraints
 Clay is explicitly renderer agnostic and outputs rendering primitives. It also requires a user-supplied text measurement function and uses a user-managed arena for its memory. Clay render commands include element IDs, support clipping via scissor start/end commands, and perform visibility culling by default. citeturn2view0turn2view3turn2view4turn2view1
@@ -901,12 +901,12 @@ Recommended lanes:
 
 ## 23.2 Artifact matrix
 Run at least:
-- latest Zig 0.15.x
+- latest Zig 0.16.x
 - x86_64-linux
 - x86_64-windows
 - aarch64-macos if available
 
-Use Zig’s supported target matrix pragmatically; 0.15.x includes tiered target support guidance that can inform CI coverage choices. citeturn3search2turn1view1
+Use Zig’s supported target matrix pragmatically; 0.16.x includes tiered target support guidance that can inform CI coverage choices.
 
 ---
 

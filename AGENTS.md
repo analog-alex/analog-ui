@@ -2,7 +2,7 @@
 
 ## Scope
 This file is for coding agents working in `/Users/miguelalexandre/Documents/zig/analog-ui`.
-Target Zig version: `0.15.1` from `build.zig.zon`.
+Target Zig version: `0.16.0` from `build.zig.zon`.
 
 Current external agent-rule files:
 - No `.cursor/rules/` files were found.
