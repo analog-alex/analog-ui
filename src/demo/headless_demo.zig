@@ -2,7 +2,7 @@ const std = @import("std");
 const ui = @import("analog_ui");
 
 pub fn run() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 

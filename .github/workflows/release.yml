@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ZIG_VERSION: 0.15.1
+  ZIG_VERSION: 0.16.0
 
 jobs:
   validate-and-publish:

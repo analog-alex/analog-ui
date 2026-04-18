@@ -410,7 +410,7 @@ pub const RendererBackend = struct {
                         if (!sdl.SDL_RenderTexture(self.renderer, texture, null, &dst)) return error.SdlRendererError;
                     }
                 },
-                .custom => |_| {},
+                .custom => {},
             }
         }
 
