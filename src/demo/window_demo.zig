@@ -75,6 +75,10 @@ pub fn run() !void {
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 
+    var io_instance: std.Io.Threaded = .init(alloc, .{});
+    defer io_instance.deinit();
+    const io = io_instance.io();
+
     if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO)) {
         std.debug.print("SDL_Init failed: {s}\n", .{sdl.SDL_GetError()});
         return error.SdlInitFailed;
@@ -95,8 +99,8 @@ pub fn run() !void {
     };
     defer sdl.SDL_DestroyRenderer(renderer);
 
-    const cwd = std.fs.cwd();
-    const bold_bytes = try cwd.readFileAlloc(alloc, "example_ttf/roboto/Roboto-Bold.ttf", std.math.maxInt(usize));
+    const cwd = std.Io.Dir.cwd();
+    const bold_bytes = try cwd.readFileAlloc(io, "example_ttf/roboto/Roboto-Bold.ttf", alloc, .limited(std.math.maxInt(usize)));
     defer alloc.free(bold_bytes);
 
     const title_text = "ANALOG UI";

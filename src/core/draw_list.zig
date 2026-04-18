@@ -158,9 +158,11 @@ pub const Builder = struct {
 
     pub fn finish(self: *Builder) !DrawList {
         if (self.clip_depth != 0) return error.UnbalancedClipStack;
+        const op_count: u32 = @intCast(self.ops.items.len);
+        const owned_ops = try self.ops.toOwnedSlice();
         return .{
-            .ops = try self.ops.toOwnedSlice(),
-            .stats = .{ .op_count = @intCast(self.ops.items.len) },
+            .ops = owned_ops,
+            .stats = .{ .op_count = op_count },
         };
     }
 };
