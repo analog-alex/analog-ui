@@ -31,3 +31,7 @@ test "version is loaded correctly" {
     const std = @import("std");
     try std.testing.expectEqualStrings("0.0.0", version);
 }
+
+test "menu integration scenarios are validated" {
+    _ = @import("core/menu_integration.zig");
+}
