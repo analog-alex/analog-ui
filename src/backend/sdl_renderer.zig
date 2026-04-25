@@ -393,7 +393,7 @@ pub const RendererBackend = struct {
         x.* += glyph.advance_px * inv_font_scale;
     }
 
-    fn measureLineWidth(font: *const Font, line: []const u8, inv_font_scale: f32) !f32 {
+    fn measureLineWidth(font: *Font, line: []const u8, inv_font_scale: f32) !f32 {
         const measured = try font.measure(line);
         return measured.width * inv_font_scale;
     }
