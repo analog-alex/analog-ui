@@ -73,10 +73,20 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 ### Key Exports (`src/root.zig`)
 
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
+- **Frame API**: `FrameApi.collectInput`, `FrameApi.collectSdlInput`, `FrameApi.beginFrame`, `FrameApi.endFrame`, `FrameApi.renderFrame`
 - **Fonts**: `Font`
 - **Widgets**: `button`, `buttonWithOptions`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
 - **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
 - **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
+
+### Frame API Surface
+
+`FrameApi` provides the stable per-frame orchestration layer around context/input/fonts/rendering:
+
+- `collectInput` / `collectSdlInput`: map events into `InputState`
+- `beginFrame`: starts a context frame with screen size, input snapshot, and optional default font
+- `endFrame`: returns the `DrawList` for the frame
+- `renderFrame`: optional font sync + backend render in one call
 
 ### Example Usage
 
@@ -110,52 +120,31 @@ defer font.deinit();
 Per-frame pass (input -> widget logic -> draw list -> render):
 
 ```zig
-fn pointInRect(r: ui.Rect, x: f32, y: f32) bool {
-    return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h;
-}
-
 fn renderFrame(
-    alloc: std.mem.Allocator,
+    ctx: *ui.Context,
     backend: *ui.RendererBackend,
     font: *ui.Font,
     events: []const sdl.SDL_Event,
-    input: *ui.InputState,
-    widgets: *ui.WidgetState,
+    input_prev: *ui.InputState,
 ) !void {
-    input.* = ui.inputFromSdlEvents(events, input.*);
-    widgets.beginFrame();
+    const input = ui.FrameApi.collectSdlInput(events, input_prev.*);
+    input_prev.* = input;
 
-    const button_rect = ui.Rect{ .x = 48, .y = 40, .w = 220, .h = 56 };
-    const hovered = pointInRect(button_rect, input.mouse_pos.x, input.mouse_pos.y);
-    const button_id = ui.Id.fromStr("play_button");
+    ui.FrameApi.beginFrame(ctx, .{
+        .screen = .{ .w = 1280, .h = 720 },
+        .input = input,
+        .default_font = font,
+    });
 
-    const interaction = ui.buttonWithOptions(widgets, button_id, input.*, .{ .hovered = hovered });
-    if (interaction.pressed) {
-        std.debug.print("Play pressed\n", .{});
-    }
+    // Build Clay/UI layout for this frame here.
 
-    var builder = ui.Builder.init(alloc);
-    defer builder.deinit();
+    const draw_list = try ui.FrameApi.endFrame(ctx);
 
-    try builder.push(.{ .rect_filled = .{
-        .rect = button_rect,
-        .color = .{ .r = 0.16, .g = 0.49, .b = 0.76, .a = 1.0 },
-        .radius = 8,
-    } });
-    try builder.push(.{ .text_run = .{
-        .rect = button_rect,
-        .text = "Play",
-        .font_handle = 0,
-        .size_px = 16,
-        .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
-        .alignment = .center,
-    } });
-
-    const draw_list = try builder.finish();
-    defer alloc.free(draw_list.ops);
-
-    try backend.syncFont(font);
-    try backend.render(draw_list, .{ .dpi_scale = 1.0, .font_atlas_scale = 1.0 });
+    try ui.FrameApi.renderFrame(backend, draw_list, .{
+        .sync_font = font,
+        .dpi_scale = 1.0,
+        .font_atlas_scale = 1.0,
+    });
 }
 ```
 
