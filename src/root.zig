@@ -2,6 +2,7 @@ pub const Id = @import("core/ids.zig").Id;
 pub const InputState = @import("core/input.zig").InputState;
 pub const DrawList = @import("core/draw_list.zig").DrawList;
 pub const Rect = @import("core/draw_list.zig").Rect;
+pub const Color = @import("core/draw_list.zig").Color;
 pub const Builder = @import("core/draw_list.zig").Builder;
 pub const Context = @import("core/context.zig").Context;
 pub const FrameApi = @import("core/frame_api.zig");
