@@ -21,6 +21,15 @@ Current state:
 - Run headless demo: `zig build run`
 - Run SDL window demo: `zig build run -Dwindow_demo=true`
 
+## Dependencies
+
+Core dependencies used by this project:
+
+- [Clay](https://github.com/nicbarker/clay) for layout and command generation
+- [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h) for TTF rasterization and glyph metrics
+
+In this repository, both are compiled via vendored C implementation units wired in `build.zig`.
+
 ## Using `analog_ui` in another project
 
 Add this package to your `build.zig.zon`, then in your app `build.zig`:
