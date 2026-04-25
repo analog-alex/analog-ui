@@ -93,6 +93,13 @@ Notes:
 - `RendererBackend.render` validates `DrawList` contract and returns errors for invalid input or SDL failures.
 - Keep `dpi_scale` and `font_atlas_scale` in `RenderOptions` aligned with your window scale strategy.
 
+If you want a stable orchestration surface instead of wiring each piece manually, use `ui.FrameApi`:
+
+- `FrameApi.collectInput` / `FrameApi.collectSdlInput`
+- `FrameApi.beginFrame`
+- `FrameApi.endFrame`
+- `FrameApi.renderFrame`
+
 ## Font Loading Expectations
 
 `ui.Font.initTtf` duplicates `ttf_bytes` into owned memory, so your original byte slice may be freed after init.

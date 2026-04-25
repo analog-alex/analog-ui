@@ -4,6 +4,7 @@ pub const DrawList = @import("core/draw_list.zig").DrawList;
 pub const Rect = @import("core/draw_list.zig").Rect;
 pub const Builder = @import("core/draw_list.zig").Builder;
 pub const Context = @import("core/context.zig").Context;
+pub const FrameApi = @import("core/frame_api.zig");
 pub const Theme = @import("core/theme.zig").Theme;
 pub const Font = @import("font/font.zig").Font;
 pub const WidgetState = @import("core/widgets.zig").WidgetState;
