@@ -210,6 +210,16 @@ pub const CoreWidgets = struct {
         };
     }
 
+    fn centeredLabelRect(rect: Rect, size_px: f32) Rect {
+        const line_height = std.math.clamp(size_px * 1.2, 1.0, rect.h);
+        return .{
+            .x = rect.x,
+            .y = rect.y + (rect.h - line_height) * 0.5,
+            .w = rect.w,
+            .h = line_height,
+        };
+    }
+
     pub fn label(builder: *Builder, rect: Rect, text: []const u8, options: LabelOptions) !void {
         try builder.push(.{ .text_run = .{
             .rect = rect,
@@ -300,7 +310,7 @@ pub const CoreWidgets = struct {
             .radius = options.radius,
         } });
 
-        try label(builder, rect, text, .{
+        try label(builder, centeredLabelRect(rect, options.size_px), text, .{
             .font_handle = options.font_handle,
             .size_px = options.size_px,
             .color = if (interaction.disabled) scaleColor(options.text_color, -0.35) else options.text_color,
@@ -494,6 +504,14 @@ test "CoreWidgets button renders ops and reports pressed" {
         const draw_list = try builder.finish();
         defer std.testing.allocator.free(draw_list.ops);
         try std.testing.expectEqual(@as(usize, 3), draw_list.ops.len);
+
+        switch (draw_list.ops[2]) {
+            .text_run => |text| {
+                try std.testing.expectApproxEqAbs(@as(f32, 31.2), text.rect.y, 0.0001);
+                try std.testing.expectApproxEqAbs(@as(f32, 21.6), text.rect.h, 0.0001);
+            },
+            else => try std.testing.expect(false),
+        }
     }
 
     input = InputState.init();
