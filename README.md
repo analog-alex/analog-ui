@@ -12,7 +12,7 @@ Current state:
 - Clay C bridge is wired and render commands are translated to `DrawList`
 - Font atlas pages, glyph cache, UTF-8 measurement, and dirty-rect tracking are implemented
 - SDL renderer backend renders clip/rect/border/text/image draw ops (GPU backend remains scaffold)
-- Headless and SDL window demo paths exist in `src/main.zig`
+- Headless and SDL window demo paths exist in `src/main.zig`, including title/pause/settings menu examples
 
 ## Build and Run
 
