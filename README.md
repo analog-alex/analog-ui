@@ -62,7 +62,7 @@ pub fn build(b: *std.Build) void {
 
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
 - **Fonts**: `Font`
-- **Widgets**: `button(state: *WidgetState, id: Id, hovered: bool, input: InputState) bool`
+- **Widgets**: `button`, `buttonWithOptions`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
 - **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
 - **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
 
@@ -106,12 +106,14 @@ fn renderFrame(
     widgets: *ui.WidgetState,
 ) !void {
     input.* = ui.inputFromSdlEvents(events, input.*);
+    widgets.beginFrame();
 
     const button_rect = ui.Rect{ .x = 48, .y = 40, .w = 220, .h = 56 };
     const hovered = pointInRect(button_rect, input.mouse_pos.x, input.mouse_pos.y);
     const button_id = ui.Id.fromStr("play_button");
 
-    if (ui.button(widgets, button_id, hovered, input.*)) {
+    const interaction = ui.buttonWithOptions(widgets, button_id, input.*, .{ .hovered = hovered });
+    if (interaction.pressed) {
         std.debug.print("Play pressed\n", .{});
     }
 

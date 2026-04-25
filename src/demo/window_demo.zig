@@ -136,6 +136,14 @@ pub fn run() !void {
     };
     const pulse_toggle_id = ui.Id.fromStr("menu_toggle_pulse");
     const quit_id = ui.Id.fromStr("menu_quit");
+    const menu_focus_items = [_]ui.FocusItem{
+        .{ .id = theme_ids[0] },
+        .{ .id = theme_ids[1] },
+        .{ .id = theme_ids[2] },
+        .{ .id = theme_ids[3] },
+        .{ .id = pulse_toggle_id },
+        .{ .id = quit_id },
+    };
 
     var selected_theme: usize = 0;
     var pulse_enabled = false;
@@ -199,6 +207,13 @@ pub fn run() !void {
         }
 
         input = ui.inputFromSdlEvents(frame_events.items, input);
+        widget_state.beginFrame();
+        if (input.nav_down) {
+            ui.moveFocusLinear(&widget_state, &menu_focus_items, .next);
+        }
+        if (input.nav_up) {
+            ui.moveFocusLinear(&widget_state, &menu_focus_items, .previous);
+        }
 
         const dpi_scale = active_scale;
 
@@ -227,6 +242,7 @@ pub fn run() !void {
         const buttons_start_y = panel_rect.y + panel_rect.h - controls_total_h - 26.0;
 
         var button_rects: [theme_labels.len]ui.Rect = undefined;
+        var theme_interactions: [theme_labels.len]ui.ButtonInteraction = undefined;
         var i: usize = 0;
         while (i < theme_labels.len) : (i += 1) {
             button_rects[i] = .{
@@ -237,7 +253,8 @@ pub fn run() !void {
             };
 
             const hovered = pointInRect(button_rects[i], input.mouse_pos.x, input.mouse_pos.y);
-            if (ui.button(&widget_state, theme_ids[i], hovered, input)) {
+            theme_interactions[i] = ui.buttonWithOptions(&widget_state, theme_ids[i], input, .{ .hovered = hovered });
+            if (theme_interactions[i].pressed) {
                 selected_theme = i;
             }
         }
@@ -249,7 +266,8 @@ pub fn run() !void {
             .h = button_h,
         };
         const pulse_hovered = pointInRect(pulse_rect, input.mouse_pos.x, input.mouse_pos.y);
-        if (ui.button(&widget_state, pulse_toggle_id, pulse_hovered, input)) {
+        const pulse_interaction = ui.buttonWithOptions(&widget_state, pulse_toggle_id, input, .{ .hovered = pulse_hovered });
+        if (pulse_interaction.pressed) {
             pulse_enabled = !pulse_enabled;
         }
 
@@ -260,7 +278,8 @@ pub fn run() !void {
             .h = button_h,
         };
         const quit_hovered = pointInRect(quit_rect, input.mouse_pos.x, input.mouse_pos.y);
-        if (ui.button(&widget_state, quit_id, quit_hovered, input)) {
+        const quit_interaction = ui.buttonWithOptions(&widget_state, quit_id, input, .{ .hovered = quit_hovered });
+        if (quit_interaction.pressed) {
             running = false;
         }
 
@@ -327,8 +346,17 @@ pub fn run() !void {
 
         i = 0;
         while (i < theme_labels.len) : (i += 1) {
-            const hovered = pointInRect(button_rects[i], input.mouse_pos.x, input.mouse_pos.y);
-            const boost: u8 = if (hovered) 30 else if (selected_theme == i) 14 else 0;
+            const interaction = theme_interactions[i];
+            const boost: u8 = if (interaction.active)
+                36
+            else if (interaction.hovered)
+                30
+            else if (interaction.focused)
+                20
+            else if (selected_theme == i)
+                14
+            else
+                0;
             const button_rgb = theme_buttons[i];
 
             try builder.push(.{ .rect_filled = .{
@@ -342,10 +370,13 @@ pub fn run() !void {
                 .radius = 8,
             } });
 
-            if (selected_theme == i) {
+            if (selected_theme == i or interaction.focused) {
                 try builder.push(.{ .rect_stroke = .{
                     .rect = button_rects[i],
-                    .color = .{ .r = 0.96, .g = 0.98, .b = 1.0, .a = 1.0 },
+                    .color = if (interaction.focused)
+                        .{ .r = 0.72, .g = 0.95, .b = 1.0, .a = 1.0 }
+                    else
+                        .{ .r = 0.96, .g = 0.98, .b = 1.0, .a = 1.0 },
                     .thickness = 2,
                     .radius = 8,
                 } });
@@ -369,7 +400,14 @@ pub fn run() !void {
             } });
         }
 
-        const pulse_boost: u8 = if (pulse_hovered) 28 else 0;
+        const pulse_boost: u8 = if (pulse_interaction.active)
+            34
+        else if (pulse_interaction.hovered)
+            28
+        else if (pulse_interaction.focused)
+            18
+        else
+            0;
         const pulse_base = if (pulse_enabled) [3]u8{ 76, 162, 178 } else [3]u8{ 98, 106, 120 };
         try builder.push(.{ .rect_filled = .{
             .rect = pulse_rect,
@@ -383,7 +421,9 @@ pub fn run() !void {
         } });
         try builder.push(.{ .rect_stroke = .{
             .rect = pulse_rect,
-            .color = if (pulse_enabled)
+            .color = if (pulse_interaction.focused)
+                .{ .r = 0.72, .g = 0.95, .b = 1.0, .a = 1.0 }
+            else if (pulse_enabled)
                 .{ .r = 0.90, .g = 1.0, .b = 0.98, .a = 0.95 }
             else
                 .{ .r = 0.84, .g = 0.88, .b = 0.95, .a = 0.75 },
@@ -409,7 +449,14 @@ pub fn run() !void {
             .alignment = .center,
         } });
 
-        const quit_boost: u8 = if (quit_hovered) 35 else 0;
+        const quit_boost: u8 = if (quit_interaction.active)
+            40
+        else if (quit_interaction.hovered)
+            35
+        else if (quit_interaction.focused)
+            18
+        else
+            0;
         try builder.push(.{ .rect_filled = .{
             .rect = quit_rect,
             .color = .{
@@ -422,7 +469,10 @@ pub fn run() !void {
         } });
         try builder.push(.{ .rect_stroke = .{
             .rect = quit_rect,
-            .color = .{ .r = 0.98, .g = 0.92, .b = 0.93, .a = 0.8 },
+            .color = if (quit_interaction.focused)
+                .{ .r = 0.72, .g = 0.95, .b = 1.0, .a = 1.0 }
+            else
+                .{ .r = 0.98, .g = 0.92, .b = 0.93, .a = 0.8 },
             .thickness = 2,
             .radius = 8,
         } });
