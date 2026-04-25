@@ -5,6 +5,7 @@ zig-out/
 # Zig local/global cache directories (defensive; usually outside repo)
 zig-cache/
 zig-global-cache/
+zig-pkg/
 
 # Build/test outputs
 *.o
