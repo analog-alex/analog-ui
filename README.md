@@ -148,7 +148,7 @@ fn renderFrame(
 }
 ```
 
-See `src/demo/headless_demo.zig` and `src/demo/window_demo.zig` for full demos. Version: `0.0.0`.
+See `src/demo/headless_demo.zig` and `src/demo/window_demo.zig` for full demos. Version: `0.0.1`.
 
 ## SDL3 lifetime and ownership
 

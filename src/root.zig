@@ -37,7 +37,7 @@ test "root exports are available" {
 
 test "version is loaded correctly" {
     const std = @import("std");
-    try std.testing.expectEqualStrings("0.0.0", version);
+    try std.testing.expectEqualStrings("0.0.1", version);
 }
 
 test "menu integration scenarios are validated" {
