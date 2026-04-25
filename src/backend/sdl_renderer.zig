@@ -14,6 +14,13 @@ const TexturePage = struct {
     texture: *sdl.SDL_Texture,
 };
 
+const TextureTint = struct {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+};
+
 pub const RendererBackend = struct {
     allocator: std.mem.Allocator,
     renderer: *sdl.SDL_Renderer,
@@ -53,6 +60,73 @@ pub const RendererBackend = struct {
 
     fn toFRect(rect: Rect) sdl.SDL_FRect {
         return .{ .x = rect.x, .y = rect.y, .w = rect.w, .h = rect.h };
+    }
+
+    fn toClipRect(rect: Rect) sdl.SDL_Rect {
+        const x = @as(c_int, @intFromFloat(@floor(rect.x)));
+        const y = @as(c_int, @intFromFloat(@floor(rect.y)));
+        const right = @as(c_int, @intFromFloat(@ceil(rect.x + rect.w)));
+        const bottom = @as(c_int, @intFromFloat(@ceil(rect.y + rect.h)));
+        return .{
+            .x = x,
+            .y = y,
+            .w = @max(0, right - x),
+            .h = @max(0, bottom - y),
+        };
+    }
+
+    fn intersectClipRects(a: sdl.SDL_Rect, b: sdl.SDL_Rect) sdl.SDL_Rect {
+        const left = @max(a.x, b.x);
+        const top = @max(a.y, b.y);
+        const right = @min(a.x + a.w, b.x + b.w);
+        const bottom = @min(a.y + a.h, b.y + b.h);
+        return .{
+            .x = left,
+            .y = top,
+            .w = @max(0, right - left),
+            .h = @max(0, bottom - top),
+        };
+    }
+
+    fn alignedLineX(rect: Rect, line_width: f32, alignment: TextAlign) f32 {
+        return switch (alignment) {
+            .left => rect.x,
+            .center => rect.x + (rect.w - line_width) * 0.5,
+            .right => rect.x + (rect.w - line_width),
+        };
+    }
+
+    fn getTextureTint(texture: *sdl.SDL_Texture) !TextureTint {
+        var r: u8 = 255;
+        var g: u8 = 255;
+        var b: u8 = 255;
+        var a: u8 = 255;
+        if (!sdl.SDL_GetTextureColorMod(texture, &r, &g, &b)) return error.SdlRendererError;
+        if (!sdl.SDL_GetTextureAlphaMod(texture, &a)) return error.SdlRendererError;
+        return .{ .r = r, .g = g, .b = b, .a = a };
+    }
+
+    fn setTextureTint(texture: *sdl.SDL_Texture, tint: TextureTint) !void {
+        if (!sdl.SDL_SetTextureColorMod(texture, tint.r, tint.g, tint.b)) return error.SdlRendererError;
+        if (!sdl.SDL_SetTextureAlphaMod(texture, tint.a)) return error.SdlRendererError;
+    }
+
+    fn colorToTextureTint(color: Color) TextureTint {
+        return .{
+            .r = toU8(color.r),
+            .g = toU8(color.g),
+            .b = toU8(color.b),
+            .a = toU8(color.a),
+        };
+    }
+
+    fn renderTextureTinted(self: *RendererBackend, texture: *sdl.SDL_Texture, src: ?*sdl.SDL_FRect, dst: *sdl.SDL_FRect, tint: Color) !void {
+        const previous = try getTextureTint(texture);
+        try setTextureTint(texture, colorToTextureTint(tint));
+        const rendered = sdl.SDL_RenderTexture(self.renderer, texture, src, dst);
+        const restore_result = setTextureTint(texture, previous);
+        if (!rendered) return error.SdlRendererError;
+        try restore_result;
     }
 
     fn fillFRect(self: *RendererBackend, rect: sdl.SDL_FRect) !void {
@@ -187,15 +261,6 @@ pub const RendererBackend = struct {
         }
     }
 
-    fn toIRect(rect: Rect) sdl.SDL_Rect {
-        return .{
-            .x = @intFromFloat(rect.x),
-            .y = @intFromFloat(rect.y),
-            .w = @intFromFloat(rect.w),
-            .h = @intFromFloat(rect.h),
-        };
-    }
-
     fn applyTopClip(self: *RendererBackend) !void {
         const maybe_top = if (self.clip_stack.items.len > 0)
             &self.clip_stack.items[self.clip_stack.items.len - 1]
@@ -309,7 +374,6 @@ pub const RendererBackend = struct {
         }
 
         const texture_page = self.atlas_pages.items[page_index];
-        try self.setColor(color);
 
         var src = sdl.SDL_FRect{
             .x = glyph.uv_min[0] * @as(f32, @floatFromInt(texture_page.width)),
@@ -324,11 +388,14 @@ pub const RendererBackend = struct {
             .h = @as(f32, @floatFromInt(glyph.size_px[1])) * inv_font_scale,
         };
 
-        if (!sdl.SDL_RenderTexture(self.renderer, texture_page.texture, &src, &dst)) {
-            return error.SdlRendererError;
-        }
+        try self.renderTextureTinted(texture_page.texture, &src, &dst, color);
 
         x.* += glyph.advance_px * inv_font_scale;
+    }
+
+    fn measureLineWidth(font: *const Font, line: []const u8, inv_font_scale: f32) !f32 {
+        const measured = try font.measure(line);
+        return measured.width * inv_font_scale;
     }
 
     fn drawTextRun(self: *RendererBackend, rect: Rect, text: []const u8, alignment: TextAlign, color: Color, font_atlas_scale: f32) !void {
@@ -341,20 +408,17 @@ pub const RendererBackend = struct {
         else
             1.0;
 
-        const measured = try font.measure(text);
-        const measured_width = measured.width * inv_font_scale;
-        var pen_x = rect.x;
-        switch (alignment) {
-            .left => {},
-            .center => pen_x = rect.x + (rect.w - measured_width) * 0.5,
-            .right => pen_x = rect.x + (rect.w - measured_width),
-        }
+        const first_line_end = std.mem.indexOfScalar(u8, text, '\n') orelse text.len;
+        var pen_x = alignedLineX(rect, try measureLineWidth(font, text[0..first_line_end], inv_font_scale), alignment);
         var pen_y = rect.y;
+        var line_start: usize = 0;
 
         var it = utf8.Utf8Iterator.init(text);
         while (try it.nextCodepoint()) |cp| {
             if (cp == '\n') {
-                pen_x = rect.x;
+                line_start = it.index;
+                const line_end = if (std.mem.indexOfScalarPos(u8, text, line_start, '\n')) |end| end else text.len;
+                pen_x = alignedLineX(rect, try measureLineWidth(font, text[line_start..line_end], inv_font_scale), alignment);
                 pen_y += (font.base_px * 1.2) * inv_font_scale;
                 continue;
             }
@@ -385,7 +449,13 @@ pub const RendererBackend = struct {
         for (draw_list.ops) |op| {
             switch (op) {
                 .clip_push => |r| {
-                    try self.clip_stack.append(toIRect(r));
+                    const next_clip = toClipRect(r);
+                    if (self.clip_stack.items.len > 0) {
+                        const parent = self.clip_stack.items[self.clip_stack.items.len - 1];
+                        try self.clip_stack.append(intersectClipRects(parent, next_clip));
+                    } else {
+                        try self.clip_stack.append(next_clip);
+                    }
                     try self.applyTopClip();
                 },
                 .clip_pop => {
@@ -407,7 +477,7 @@ pub const RendererBackend = struct {
                     const tex_ptr = @as(?*sdl.SDL_Texture, if (d.image_id == 0) null else @ptrFromInt(d.image_id));
                     if (tex_ptr) |texture| {
                         var dst = toFRect(d.rect);
-                        if (!sdl.SDL_RenderTexture(self.renderer, texture, null, &dst)) return error.SdlRendererError;
+                        try self.renderTextureTinted(texture, null, &dst, d.tint);
                     }
                 },
                 .custom => {},
@@ -428,4 +498,50 @@ test "clampRoundRadius clamps to half shortest side" {
     const rect = Rect{ .x = 0, .y = 0, .w = 120, .h = 40 };
     try std.testing.expectEqual(@as(f32, 20), RendererBackend.clampRoundRadius(rect, 999));
     try std.testing.expectEqual(@as(f32, 0), RendererBackend.clampRoundRadius(rect, -4));
+}
+
+test "toClipRect conservatively covers fractional rectangles" {
+    const rect = RendererBackend.toClipRect(.{ .x = 1.2, .y = 2.8, .w = 4.1, .h = 5.1 });
+
+    try std.testing.expectEqual(@as(c_int, 1), rect.x);
+    try std.testing.expectEqual(@as(c_int, 2), rect.y);
+    try std.testing.expectEqual(@as(c_int, 5), rect.w);
+    try std.testing.expectEqual(@as(c_int, 6), rect.h);
+}
+
+test "intersectClipRects keeps nested clips inside parent" {
+    const parent = sdl.SDL_Rect{ .x = 10, .y = 10, .w = 40, .h = 40 };
+    const child = sdl.SDL_Rect{ .x = 30, .y = 0, .w = 40, .h = 30 };
+    const clipped = RendererBackend.intersectClipRects(parent, child);
+
+    try std.testing.expectEqual(@as(c_int, 30), clipped.x);
+    try std.testing.expectEqual(@as(c_int, 10), clipped.y);
+    try std.testing.expectEqual(@as(c_int, 20), clipped.w);
+    try std.testing.expectEqual(@as(c_int, 20), clipped.h);
+}
+
+test "intersectClipRects returns empty clip for non-overlap" {
+    const a = sdl.SDL_Rect{ .x = 0, .y = 0, .w = 10, .h = 10 };
+    const b = sdl.SDL_Rect{ .x = 20, .y = 20, .w = 5, .h = 5 };
+    const clipped = RendererBackend.intersectClipRects(a, b);
+
+    try std.testing.expectEqual(@as(c_int, 0), clipped.w);
+    try std.testing.expectEqual(@as(c_int, 0), clipped.h);
+}
+
+test "alignedLineX applies text alignment per line" {
+    const rect = Rect{ .x = 10, .y = 0, .w = 100, .h = 20 };
+
+    try std.testing.expectEqual(@as(f32, 10), RendererBackend.alignedLineX(rect, 40, .left));
+    try std.testing.expectEqual(@as(f32, 40), RendererBackend.alignedLineX(rect, 40, .center));
+    try std.testing.expectEqual(@as(f32, 70), RendererBackend.alignedLineX(rect, 40, .right));
+}
+
+test "colorToTextureTint converts color channels" {
+    const tint = RendererBackend.colorToTextureTint(.{ .r = 1.0, .g = 128.0, .b = 0.5, .a = 0.25 });
+
+    try std.testing.expectEqual(@as(u8, 255), tint.r);
+    try std.testing.expectEqual(@as(u8, 128), tint.g);
+    try std.testing.expectEqual(@as(u8, 127), tint.b);
+    try std.testing.expectEqual(@as(u8, 63), tint.a);
 }
