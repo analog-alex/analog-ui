@@ -14,7 +14,6 @@ pub const State = struct {
     running: bool = true,
     music_enabled: bool = true,
     sfx_enabled: bool = true,
-    pulse_enabled: bool = false,
     selected_theme: usize = 0,
 };
 
@@ -88,11 +87,6 @@ fn buttonCount(screen: Screen) usize {
         .pause => 3,
         .settings => 4,
     };
-}
-
-fn saturatingAdd(base: u8, delta: u8) u8 {
-    const sum: u16 = @as(u16, base) + @as(u16, delta);
-    return @intCast(@min(sum, 255));
 }
 
 fn layoutForScreen(screen_w: f32, screen_h: f32, count: usize) ScreenLayout {
@@ -169,16 +163,8 @@ fn screenHeader(screen: Screen) struct { title: []const u8, subtitle: []const u8
     };
 }
 
-fn backgroundColor(state: State, frame_index: u32) [3]u8 {
-    const base = theme_backgrounds[state.selected_theme];
-    if (!state.pulse_enabled) return base;
-
-    const pulse: u8 = @as(u8, @intCast((frame_index / 5) % 20));
-    return .{
-        saturatingAdd(base[0], pulse / 2),
-        saturatingAdd(base[1], pulse / 2),
-        saturatingAdd(base[2], pulse),
-    };
+fn backgroundColor(state: State) [3]u8 {
+    return theme_backgrounds[state.selected_theme];
 }
 
 pub fn frame(
@@ -188,7 +174,6 @@ pub fn frame(
     input: ui.InputState,
     options: struct {
         screen: struct { w: f32 = 960, h: f32 = 540 } = .{},
-        frame_index: u32 = 0,
     },
 ) !FrameOutput {
     widget_state.beginFrame();
@@ -301,7 +286,6 @@ pub fn frame(
             const theme = try core_widgets.button(&builder, widget_state, settings_theme_id, layout.button_rects[2], theme_setting_labels[state.selected_theme], input, buttonStyle(.{ 184, 128, 72 }));
             if (theme.pressed) {
                 state.selected_theme = (state.selected_theme + 1) % theme_setting_labels.len;
-                state.pulse_enabled = true;
             }
 
             const back = try core_widgets.button(&builder, widget_state, settings_back_id, layout.button_rects[3], "Back", input, buttonStyle(.{ 120, 118, 170 }));
@@ -313,7 +297,7 @@ pub fn frame(
 
     return .{
         .draw_list = try builder.finish(),
-        .background_rgb = backgroundColor(state.*, options.frame_index),
+        .background_rgb = backgroundColor(state.*),
     };
 }
 
@@ -417,7 +401,7 @@ test "settings toggles values and cycles theme" {
         defer std.testing.allocator.free(out.draw_list.ops);
         try out.draw_list.validateContract();
         try std.testing.expectEqual(@as(usize, 1), state.selected_theme);
-        try std.testing.expect(state.pulse_enabled);
+        try std.testing.expectEqual(theme_backgrounds[1], out.background_rgb);
     }
 }
 
