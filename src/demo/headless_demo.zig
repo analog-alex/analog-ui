@@ -20,10 +20,12 @@ pub fn run() !void {
     input = ui.inputFromEvents(&frame_1, input);
 
     var widget_state = ui.WidgetState{};
+    widget_state.beginFrame();
     _ = ui.button(&widget_state, play_id, true, input);
 
     const frame_2 = [_]ui.SdlEvent{.mouse_button_up};
     input = ui.inputFromEvents(&frame_2, input);
+    widget_state.beginFrame();
     const pressed = ui.button(&widget_state, play_id, true, input);
     std.debug.print("button pressed: {}\n", .{pressed});
 
