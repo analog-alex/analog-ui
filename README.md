@@ -75,7 +75,7 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
 - **Frame API**: `FrameApi.collectInput`, `FrameApi.collectSdlInput`, `FrameApi.beginFrame`, `FrameApi.endFrame`, `FrameApi.renderFrame`
 - **Fonts**: `Font`
-- **Widgets**: `button`, `buttonWithOptions`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
+- **Widgets**: `button`, `buttonWithOptions`, `buttonWidget`, `label`, `image`, `spacer`, `separator`, `CoreWidgets`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
 - **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
 - **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
 

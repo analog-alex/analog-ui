@@ -1,5 +1,6 @@
 const std = @import("std");
 const ui = @import("analog_ui");
+const core_widgets = ui.CoreWidgets;
 
 pub const Screen = enum {
     title,
@@ -54,13 +55,6 @@ const settings_focus_items = [_]ui.FocusItem{
     .{ .id = settings_back_id },
 };
 
-const theme_names = [_][]const u8{
-    "Ocean Blue",
-    "Forest Green",
-    "Sunset Orange",
-    "Steel Night",
-};
-
 const theme_setting_labels = [_][]const u8{
     "Theme: Ocean Blue",
     "Theme: Forest Green",
@@ -101,10 +95,6 @@ fn saturatingAdd(base: u8, delta: u8) u8 {
     return @intCast(@min(sum, 255));
 }
 
-fn pointInRect(rect: ui.Rect, x: f32, y: f32) bool {
-    return x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h;
-}
-
 fn layoutForScreen(screen_w: f32, screen_h: f32, count: usize) ScreenLayout {
     const panel_w = std.math.clamp(screen_w * 0.56, 420.0, 760.0);
     const panel_h = std.math.clamp(screen_h * 0.74, 320.0, 540.0);
@@ -138,28 +128,20 @@ fn layoutForScreen(screen_w: f32, screen_h: f32, count: usize) ScreenLayout {
     };
 }
 
-fn boostForInteraction(interaction: ui.ButtonInteraction) u8 {
-    if (interaction.active) return 36;
-    if (interaction.hovered) return 30;
-    if (interaction.focused) return 18;
-    return 0;
-}
-
-fn boostedColor(rgb: [3]u8, boost: u8) ui.Color {
+fn colorFromRgb(rgb: [3]u8) ui.Color {
     return .{
-        .r = @as(f32, @floatFromInt(saturatingAdd(rgb[0], boost))) / 255.0,
-        .g = @as(f32, @floatFromInt(saturatingAdd(rgb[1], boost))) / 255.0,
-        .b = @as(f32, @floatFromInt(saturatingAdd(rgb[2], boost))) / 255.0,
+        .r = @as(f32, @floatFromInt(rgb[0])) / 255.0,
+        .g = @as(f32, @floatFromInt(rgb[1])) / 255.0,
+        .b = @as(f32, @floatFromInt(rgb[2])) / 255.0,
         .a = 1.0,
     };
 }
 
-fn labelRect(rect: ui.Rect) ui.Rect {
+fn buttonStyle(base_rgb: [3]u8) core_widgets.ButtonWidgetOptions {
     return .{
-        .x = rect.x,
-        .y = rect.y + (rect.h - 24.0) * 0.5,
-        .w = rect.w,
-        .h = 24.0,
+        .fill_color = colorFromRgb(base_rgb),
+        .size_px = 18,
+        .alignment = .center,
     };
 }
 
@@ -185,119 +167,6 @@ fn screenHeader(screen: Screen) struct { title: []const u8, subtitle: []const u8
             .subtitle = "Audio and theme options",
         },
     };
-}
-
-fn titleButtons(state: *State, widget_state: *ui.WidgetState, input: ui.InputState, layout: ScreenLayout) [3]ui.ButtonInteraction {
-    var interactions: [3]ui.ButtonInteraction = undefined;
-
-    const hovered_start = pointInRect(layout.button_rects[0], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[0] = ui.buttonWithOptions(widget_state, title_start_id, input, .{ .hovered = hovered_start });
-    if (interactions[0].pressed) {
-        setScreen(state, widget_state, .pause);
-    }
-
-    const hovered_settings = pointInRect(layout.button_rects[1], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[1] = ui.buttonWithOptions(widget_state, title_settings_id, input, .{ .hovered = hovered_settings });
-    if (interactions[1].pressed) {
-        state.settings_return_screen = .title;
-        setScreen(state, widget_state, .settings);
-    }
-
-    const hovered_quit = pointInRect(layout.button_rects[2], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[2] = ui.buttonWithOptions(widget_state, title_quit_id, input, .{ .hovered = hovered_quit });
-    if (interactions[2].pressed) {
-        state.running = false;
-    }
-
-    return interactions;
-}
-
-fn pauseButtons(state: *State, widget_state: *ui.WidgetState, input: ui.InputState, layout: ScreenLayout) [3]ui.ButtonInteraction {
-    var interactions: [3]ui.ButtonInteraction = undefined;
-
-    const hovered_resume = pointInRect(layout.button_rects[0], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[0] = ui.buttonWithOptions(widget_state, pause_resume_id, input, .{ .hovered = hovered_resume });
-    if (interactions[0].pressed) {
-        setScreen(state, widget_state, .title);
-    }
-
-    const hovered_settings = pointInRect(layout.button_rects[1], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[1] = ui.buttonWithOptions(widget_state, pause_settings_id, input, .{ .hovered = hovered_settings });
-    if (interactions[1].pressed) {
-        state.settings_return_screen = .pause;
-        setScreen(state, widget_state, .settings);
-    }
-
-    const hovered_title = pointInRect(layout.button_rects[2], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[2] = ui.buttonWithOptions(widget_state, pause_title_id, input, .{ .hovered = hovered_title });
-    if (interactions[2].pressed) {
-        setScreen(state, widget_state, .title);
-    }
-
-    return interactions;
-}
-
-fn settingsButtons(state: *State, widget_state: *ui.WidgetState, input: ui.InputState, layout: ScreenLayout) [4]ui.ButtonInteraction {
-    var interactions: [4]ui.ButtonInteraction = undefined;
-
-    const hovered_music = pointInRect(layout.button_rects[0], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[0] = ui.buttonWithOptions(widget_state, settings_music_id, input, .{ .hovered = hovered_music });
-    if (interactions[0].pressed) {
-        state.music_enabled = !state.music_enabled;
-    }
-
-    const hovered_sfx = pointInRect(layout.button_rects[1], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[1] = ui.buttonWithOptions(widget_state, settings_sfx_id, input, .{ .hovered = hovered_sfx });
-    if (interactions[1].pressed) {
-        state.sfx_enabled = !state.sfx_enabled;
-    }
-
-    const hovered_theme = pointInRect(layout.button_rects[2], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[2] = ui.buttonWithOptions(widget_state, settings_theme_id, input, .{ .hovered = hovered_theme });
-    if (interactions[2].pressed) {
-        state.selected_theme = (state.selected_theme + 1) % theme_names.len;
-        state.pulse_enabled = true;
-    }
-
-    const hovered_back = pointInRect(layout.button_rects[3], input.mouse_pos.x, input.mouse_pos.y);
-    interactions[3] = ui.buttonWithOptions(widget_state, settings_back_id, input, .{ .hovered = hovered_back });
-    if (interactions[3].pressed) {
-        setScreen(state, widget_state, state.settings_return_screen);
-    }
-
-    return interactions;
-}
-
-fn pushButton(
-    builder: *ui.Builder,
-    rect: ui.Rect,
-    label: []const u8,
-    interaction: ui.ButtonInteraction,
-    base_rgb: [3]u8,
-) !void {
-    const boost = boostForInteraction(interaction);
-    try builder.push(.{ .rect_filled = .{
-        .rect = rect,
-        .color = boostedColor(base_rgb, boost),
-        .radius = 8,
-    } });
-    try builder.push(.{ .rect_stroke = .{
-        .rect = rect,
-        .color = if (interaction.focused)
-            .{ .r = 0.72, .g = 0.95, .b = 1.0, .a = 1.0 }
-        else
-            .{ .r = 0.94, .g = 0.97, .b = 1.0, .a = 0.72 },
-        .thickness = 2,
-        .radius = 8,
-    } });
-    try builder.push(.{ .text_run = .{
-        .rect = labelRect(rect),
-        .text = label,
-        .font_handle = 0,
-        .size_px = 18,
-        .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
-        .alignment = .center,
-    } });
 }
 
 fn backgroundColor(state: State, frame_index: u32) [3]u8 {
@@ -351,52 +220,94 @@ pub fn frame(
     } });
 
     const header = screenHeader(state.current_screen);
-    try builder.push(.{ .text_run = .{
-        .rect = .{
-            .x = layout.panel_rect.x,
-            .y = layout.panel_rect.y + 22.0,
-            .w = layout.panel_rect.w,
-            .h = 28.0,
-        },
-        .text = header.title,
-        .font_handle = 0,
+    const title_rect = ui.Rect{
+        .x = layout.panel_rect.x,
+        .y = layout.panel_rect.y + 22.0,
+        .w = layout.panel_rect.w,
+        .h = 28.0,
+    };
+    try core_widgets.label(&builder, title_rect, header.title, .{
         .size_px = 20,
         .color = .{ .r = 0.95, .g = 0.97, .b = 1.0, .a = 1.0 },
         .alignment = .center,
-    } });
-    try builder.push(.{ .text_run = .{
-        .rect = .{
-            .x = layout.panel_rect.x,
-            .y = layout.panel_rect.y + 56.0,
-            .w = layout.panel_rect.w,
-            .h = 22.0,
-        },
-        .text = header.subtitle,
-        .font_handle = 0,
+    });
+
+    const subtitle_rect = core_widgets.spacer(title_rect, 34.0, .vertical);
+    try core_widgets.label(&builder, .{
+        .x = subtitle_rect.x,
+        .y = subtitle_rect.y,
+        .w = subtitle_rect.w,
+        .h = 22.0,
+    }, header.subtitle, .{
         .size_px = 16,
         .color = .{ .r = 0.82, .g = 0.86, .b = 0.94, .a = 1.0 },
         .alignment = .center,
-    } });
+    });
+
+    const separator_rect = core_widgets.spacer(subtitle_rect, 30.0, .vertical);
+    try core_widgets.separator(&builder, .{
+        .x = layout.panel_rect.x + 32.0,
+        .y = separator_rect.y,
+        .w = layout.panel_rect.w - 64.0,
+        .h = 8.0,
+    }, .{});
 
     switch (state.current_screen) {
         .title => {
-            const interactions = titleButtons(state, widget_state, input, layout);
-            try pushButton(&builder, layout.button_rects[0], "Start Game", interactions[0], .{ 66, 140, 196 });
-            try pushButton(&builder, layout.button_rects[1], "Settings", interactions[1], .{ 78, 156, 98 });
-            try pushButton(&builder, layout.button_rects[2], "Quit", interactions[2], .{ 154, 46, 58 });
+            const start = try core_widgets.button(&builder, widget_state, title_start_id, layout.button_rects[0], "Start Game", input, buttonStyle(.{ 66, 140, 196 }));
+            if (start.pressed) {
+                setScreen(state, widget_state, .pause);
+            }
+
+            const settings = try core_widgets.button(&builder, widget_state, title_settings_id, layout.button_rects[1], "Settings", input, buttonStyle(.{ 78, 156, 98 }));
+            if (settings.pressed) {
+                state.settings_return_screen = .title;
+                setScreen(state, widget_state, .settings);
+            }
+
+            const quit = try core_widgets.button(&builder, widget_state, title_quit_id, layout.button_rects[2], "Quit", input, buttonStyle(.{ 154, 46, 58 }));
+            if (quit.pressed) {
+                state.running = false;
+            }
         },
         .pause => {
-            const interactions = pauseButtons(state, widget_state, input, layout);
-            try pushButton(&builder, layout.button_rects[0], "Resume", interactions[0], .{ 66, 140, 196 });
-            try pushButton(&builder, layout.button_rects[1], "Settings", interactions[1], .{ 78, 156, 98 });
-            try pushButton(&builder, layout.button_rects[2], "Back To Title", interactions[2], .{ 120, 118, 170 });
+            const resume_btn = try core_widgets.button(&builder, widget_state, pause_resume_id, layout.button_rects[0], "Resume", input, buttonStyle(.{ 66, 140, 196 }));
+            if (resume_btn.pressed) {
+                setScreen(state, widget_state, .title);
+            }
+
+            const settings_btn = try core_widgets.button(&builder, widget_state, pause_settings_id, layout.button_rects[1], "Settings", input, buttonStyle(.{ 78, 156, 98 }));
+            if (settings_btn.pressed) {
+                state.settings_return_screen = .pause;
+                setScreen(state, widget_state, .settings);
+            }
+
+            const back_to_title_btn = try core_widgets.button(&builder, widget_state, pause_title_id, layout.button_rects[2], "Back To Title", input, buttonStyle(.{ 120, 118, 170 }));
+            if (back_to_title_btn.pressed) {
+                setScreen(state, widget_state, .title);
+            }
         },
         .settings => {
-            const interactions = settingsButtons(state, widget_state, input, layout);
-            try pushButton(&builder, layout.button_rects[0], if (state.music_enabled) "Music: On" else "Music: Off", interactions[0], .{ 76, 146, 198 });
-            try pushButton(&builder, layout.button_rects[1], if (state.sfx_enabled) "SFX: On" else "SFX: Off", interactions[1], .{ 86, 162, 120 });
-            try pushButton(&builder, layout.button_rects[2], theme_setting_labels[state.selected_theme], interactions[2], .{ 184, 128, 72 });
-            try pushButton(&builder, layout.button_rects[3], "Back", interactions[3], .{ 120, 118, 170 });
+            const music = try core_widgets.button(&builder, widget_state, settings_music_id, layout.button_rects[0], if (state.music_enabled) "Music: On" else "Music: Off", input, buttonStyle(.{ 76, 146, 198 }));
+            if (music.pressed) {
+                state.music_enabled = !state.music_enabled;
+            }
+
+            const sfx = try core_widgets.button(&builder, widget_state, settings_sfx_id, layout.button_rects[1], if (state.sfx_enabled) "SFX: On" else "SFX: Off", input, buttonStyle(.{ 86, 162, 120 }));
+            if (sfx.pressed) {
+                state.sfx_enabled = !state.sfx_enabled;
+            }
+
+            const theme = try core_widgets.button(&builder, widget_state, settings_theme_id, layout.button_rects[2], theme_setting_labels[state.selected_theme], input, buttonStyle(.{ 184, 128, 72 }));
+            if (theme.pressed) {
+                state.selected_theme = (state.selected_theme + 1) % theme_setting_labels.len;
+                state.pulse_enabled = true;
+            }
+
+            const back = try core_widgets.button(&builder, widget_state, settings_back_id, layout.button_rects[3], "Back", input, buttonStyle(.{ 120, 118, 170 }));
+            if (back.pressed) {
+                setScreen(state, widget_state, state.settings_return_screen);
+            }
         },
     }
 
