@@ -58,6 +58,8 @@ pub fn build(b: *std.Build) void {
 
 `DrawList` semantics, ownership, and backend responsibilities are documented in `docs/draw_list_contract.md`.
 
+Host app lifecycle, ownership boundaries, backend setup, and asset-loading expectations are documented in `docs/host_app_integration.md`.
+
 ### Key Exports (`src/root.zig`)
 
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
@@ -156,6 +158,8 @@ Your app should own:
 - event pump and frame loop
 
 The library should only receive SDL handles and render against them.
+
+For practical startup/frame/teardown guidance (including font and image asset responsibilities), see `docs/host_app_integration.md`.
 
 ### Important: avoid double-linking SDL
 
