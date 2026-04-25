@@ -21,6 +21,16 @@ Current state:
 - Run headless demo: `zig build run`
 - Run SDL window demo: `zig build run -Dwindow_demo=true`
 
+## Dependencies
+
+Core dependencies used by this project:
+
+- [Clay](https://github.com/nicbarker/clay) for layout and command generation
+- [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h) for TTF rasterization and glyph metrics
+- SDL3 Zig package dependency (`.sdl` in `build.zig.zon`) for SDL headers/library integration in this repository
+
+In this repository, Clay and `stb_truetype` are compiled via vendored C implementation units wired in `build.zig`, while SDL3 comes from the Zig package dependency.
+
 ## Using `analog_ui` in another project
 
 Add this package to your `build.zig.zon`, then in your app `build.zig`:
@@ -58,6 +68,8 @@ pub fn build(b: *std.Build) void {
 
 `DrawList` semantics, ownership, and backend responsibilities are documented in `docs/draw_list_contract.md`.
 
+Host app lifecycle, ownership boundaries, backend setup, and asset-loading expectations are documented in `docs/host_app_integration.md`.
+
 ### Key Exports (`src/root.zig`)
 
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
@@ -78,7 +90,12 @@ const sdl = ui.sdl;
 var backend = try ui.RendererBackend.init(alloc, renderer);
 defer backend.deinit();
 
-const ttf_bytes = try std.fs.cwd().readFileAlloc(alloc, "assets/Roboto-Bold.ttf", std.math.maxInt(usize));
+var io_instance: std.Io.Threaded = .init(alloc, .{});
+defer io_instance.deinit();
+const io = io_instance.io();
+
+const cwd = std.Io.Dir.cwd();
+const ttf_bytes = try cwd.readFileAlloc(io, "assets/Roboto-Bold.ttf", alloc, .limited(std.math.maxInt(usize)));
 defer alloc.free(ttf_bytes);
 
 var font = try ui.Font.initTtf(alloc, .{
@@ -157,6 +174,8 @@ Your app should own:
 
 The library should only receive SDL handles and render against them.
 
+For practical startup/frame/teardown guidance (including font and image asset responsibilities), see `docs/host_app_integration.md`.
+
 ### Important: avoid double-linking SDL
 
 If your host app already links SDL3, keep linking SDL3 in the host executable only once.
@@ -169,5 +188,5 @@ For this repository itself, SDL3 linking is only done for the local window demo 
 ## Notes
 
 - Clay is developed upstream at [nicbarker/clay](https://github.com/nicbarker/clay).
-- Clay and stb implementations are compiled as C sources through the `analog_ui` module.
+- Clay and `stb_truetype` implementations are compiled as C sources through the `analog_ui` module.
 - API is still evolving toward the full v1 scope in the design document.

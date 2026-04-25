@@ -24,6 +24,7 @@ Key paths:
 - `src/platform/`: SDL input/event mapping helpers.
 - `src/demo/`: demo runners.
 - `docs/`: architecture/design notes.
+- `docs/host_app_integration.md`: host lifecycle, ownership, backend setup, and asset-loading expectations.
 - `vendor/`: third-party C headers and implementation files.
 - `zig-out/`, `.zig-cache/`: generated output; do not edit manually.
 
@@ -82,6 +83,7 @@ Follow the existing split of responsibilities:
 - Keep SDL-specific logic in `src/backend/` and `src/platform/`.
 - Keep demo-only code in `src/demo/`.
 The design doc in `docs/clay_sdl3_zig_design.md` reinforces these repo goals: explicit allocators, deterministic teardown, minimal hidden work, testable core logic, thin backend layers, and no global mutable state.
+For host-app integration behavior, treat `docs/host_app_integration.md` as the practical contract for SDL ownership boundaries, startup/frame/teardown order, and font/image asset responsibilities.
 
 ## Import Conventions
 - Put imports at the top of the file.
