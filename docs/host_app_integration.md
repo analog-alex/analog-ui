@@ -119,6 +119,14 @@ Key expectations:
 - If dynamic glyphs are enabled and new text appears, call `backend.syncFonts(&fonts)` again (or use `FrameApi.renderFrame` with `.font_registry = &fonts`) before rendering text that needs those glyphs.
 - The backend does not hot-reload font files from disk; your app decides if and when fonts are reloaded.
 
+### Text helpers and units
+
+`ui.Text` helpers (`measure`, `wrap`, `truncateWithEllipsis`) operate in logical UI pixels.
+
+- `measure`: returns logical width/height.
+- `wrap`: returns line ranges with logical `width_px` values.
+- `truncateWithEllipsis`: truncates a logical-width line and appends a suffix.
+
 ## Image Loading Expectations
 
 The SDL renderer backend treats `DrawOp.image.image_id` as a backend-defined handle.

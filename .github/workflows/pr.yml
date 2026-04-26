@@ -69,6 +69,11 @@ jobs:
           zig build
           zig build -Doptimize=ReleaseSafe
 
+      - name: Example checks
+        run: |
+          zig build run
+          zig build -Dwindow_demo=true
+
       - name: Summary
         if: success()
         run: |
@@ -77,3 +82,4 @@ jobs:
           echo "- Formatting: OK"
           echo "- Tests: OK"
           echo "- Build: OK"
+          echo "- Examples: OK"

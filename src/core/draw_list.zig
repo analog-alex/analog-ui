@@ -12,6 +12,40 @@ pub const Color = struct {
     g: f32,
     b: f32,
     a: f32,
+
+    pub const Vectors = struct {
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    };
+
+    pub fn fromBytes(r: u8, g: u8, b: u8, a: u8) Color {
+        return .{
+            .r = @as(f32, @floatFromInt(r)) / 255.0,
+            .g = @as(f32, @floatFromInt(g)) / 255.0,
+            .b = @as(f32, @floatFromInt(b)) / 255.0,
+            .a = @as(f32, @floatFromInt(a)) / 255.0,
+        };
+    }
+
+    pub fn fromVectors(v: Vectors) Color {
+        return .{
+            .r = v.r,
+            .g = v.g,
+            .b = v.b,
+            .a = v.a,
+        };
+    }
+
+    pub fn toVectors(self: Color) Vectors {
+        return .{
+            .r = self.r,
+            .g = self.g,
+            .b = self.b,
+            .a = self.a,
+        };
+    }
 };
 
 pub const TextAlign = enum {
@@ -184,6 +218,23 @@ test "DrawList builder catches unbalanced clip pop" {
     defer builder.deinit();
 
     try std.testing.expectError(error.UnbalancedClipPop, builder.push(.{ .clip_pop = {} }));
+}
+
+test "Color.fromBytes converts byte channels to normalized floats" {
+    const c = Color.fromBytes(255, 128, 0, 64);
+    try std.testing.expectApproxEqAbs(@as(f32, 1.0), c.r, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f32, 128.0 / 255.0), c.g, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f32, 0.0), c.b, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f32, 64.0 / 255.0), c.a, 0.0001);
+}
+
+test "Color vector helpers round-trip" {
+    const c = Color.fromVectors(.{ .r = 0.1, .g = 0.2, .b = 0.3, .a = 0.4 });
+    const v = c.toVectors();
+    try std.testing.expectApproxEqAbs(@as(f32, 0.1), v.r, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f32, 0.2), v.g, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f32, 0.3), v.b, 0.0001);
+    try std.testing.expectApproxEqAbs(@as(f32, 0.4), v.a, 0.0001);
 }
 
 test "DrawList contract validation catches mismatched stats" {

@@ -1,11 +1,5 @@
 const FontHandle = @import("draw_list.zig").FontHandle;
-
-pub const Color = struct {
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-};
+pub const Color = @import("draw_list.zig").Color;
 
 pub const FontRole = enum {
     body,

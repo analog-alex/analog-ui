@@ -75,9 +75,16 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `ScaleState`, `WidgetState`
 - **Frame API**: `FrameApi.collectInput`, `FrameApi.collectSdlInput`, `FrameApi.beginFrame`, `FrameApi.endFrame`, `FrameApi.renderFrame`
 - **Fonts**: `Font`, `FontRegistry`, `FontHandle`
+- **Text Helpers**: `Text.measure`, `Text.wrap`, `Text.truncateWithEllipsis`
 - **Widgets**: `button`, `buttonWithOptions`, `buttonWidget`, `label`, `image`, `spacer`, `separator`, `CoreWidgets`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
 - **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
 - **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
+
+### Breaking API note
+
+Recent API updates intentionally removed the single-font frame API in favor of `FontRegistry` + `FontHandle`.
+
+Migration notes: `docs/migration_0_0_2.md`.
 
 ### Frame API Surface
 
@@ -89,6 +96,8 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 - `beginFrame`: starts a context frame with screen size, input snapshot, and optional per-frame theme/scale/registry overrides
 - `endFrame`: returns the `DrawList` for the frame
 - `renderFrame`: optional registry sync + backend render in one call
+
+Text metrics returned by `Text.measure` and `Text.wrap` are in logical UI pixels (the same space used by `DrawList` geometry).
 
 ### Example Usage
 
@@ -165,6 +174,8 @@ fn renderFrame(
 ```
 
 See `src/demo/headless_demo.zig` and `src/demo/window_demo.zig` for full demos. Version: `0.0.1`.
+
+`src/demo/headless_demo.zig` includes a minimal multi-font fallback sample, and `src/demo/window_demo.zig` shows runtime DPI/user/app scaling through `ScaleState`.
 
 ## SDL3 lifetime and ownership
 

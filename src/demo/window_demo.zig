@@ -19,6 +19,7 @@ const WindowSize = struct {
 const PolledEvents = struct {
     quit: bool = false,
     scale_changed: bool = false,
+    user_scale_delta: f32 = 0.0,
 };
 
 fn validScale(scale: f32) f32 {
@@ -69,6 +70,13 @@ fn pollFrameEvents(frame_events: *std.array_list.Managed(sdl.SDL_Event), window_
                 }
             },
             sdl.SDL_EVENT_DISPLAY_CONTENT_SCALE_CHANGED => result.scale_changed = true,
+            sdl.c.SDL_EVENT_KEY_DOWN => {
+                switch (event.key.key) {
+                    sdl.c.SDLK_EQUALS, sdl.c.SDLK_PLUS, sdl.c.SDLK_KP_PLUS => result.user_scale_delta += 0.1,
+                    sdl.c.SDLK_MINUS, sdl.c.SDLK_KP_MINUS => result.user_scale_delta -= 0.1,
+                    else => {},
+                }
+            },
             else => {},
         }
     }
@@ -141,6 +149,7 @@ pub fn run() !void {
     defer fonts.deinit();
 
     var active_scale = validScale(ui.FrameApi.computeDpiScale(window));
+    var user_ui_scale: f32 = 1.0;
     var theme = ui.Theme.default;
     try rebuildFonts(alloc, &fonts, &theme, bold_bytes, active_scale);
 
@@ -153,6 +162,10 @@ pub fn run() !void {
     while (menu_state.running) {
         const events = try pollFrameEvents(&frame_events, window_id);
         if (events.quit) break;
+
+        if (events.user_scale_delta != 0.0) {
+            user_ui_scale = ui.clampUiScale(user_ui_scale + events.user_scale_delta);
+        }
 
         if (events.scale_changed) {
             const next_scale = validScale(ui.FrameApi.computeDpiScale(window));
@@ -176,7 +189,7 @@ pub fn run() !void {
             .font_registry = &fonts,
             .scale = .{
                 .dpi_scale = active_scale,
-                .user_scale = 1.0,
+                .user_scale = user_ui_scale,
                 .app_scale = 1.0,
             },
             .font_atlas_scale = active_scale,
