@@ -129,6 +129,17 @@ Examples in this repo: `Context`, `DrawList`, `RendererBackend`, `GpuBackend`, `
 - Avoid hidden allocations in hot paths unless the API clearly documents them.
 Common patterns already used here: `std.array_list.Managed(...)`, `allocator.dupe(...)`, `std.testing.allocator`, and `std.heap.GeneralPurposeAllocator(.{}){}`.
 
+## Performance Priorities (Game-First)
+`analog_ui` is primarily a library for games. Performance is a top priority.
+
+- Treat per-frame CPU and allocation overhead as a primary design constraint.
+- Avoid hidden heap allocations in hot paths (layout, widget evaluation, draw-list translation, and rendering loops).
+- Prefer reusable buffers/scratch storage over alloc/free churn in repeated code paths.
+- Do not add extra full-frame `O(n)` passes unless they are clearly justified; when needed, make them optional/toggleable.
+- For instrumentation/debug/perf helpers, provide a low-overhead off switch so production paths can disable bookkeeping.
+- Document the runtime cost model for new public APIs (allocations, scans, and expected complexity).
+- If a change may impact frame time, add focused tests/measurements or explicit notes in the PR description.
+
 ## Error Handling
 - Prefer explicit Zig errors and straightforward propagation.
 - Use `!T` for fallible APIs.
