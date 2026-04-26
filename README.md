@@ -73,9 +73,11 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 ### Key Exports (`src/root.zig`)
 
 - **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `ScaleState`, `WidgetState`
-- **Frame API**: `FrameApi.collectInput`, `FrameApi.collectSdlInput`, `FrameApi.beginFrame`, `FrameApi.endFrame`, `FrameApi.renderFrame`
+- **Frame API**: `FrameApi.collectInput`, `FrameApi.collectSdlInput`, `FrameApi.beginFrame`, `FrameApi.endFrame`, `FrameApi.framePerf`, `FrameApi.setPerfEnabled`, `FrameApi.renderFrame`
 - **Fonts**: `Font`, `FontRegistry`, `FontHandle`
 - **Text Helpers**: `Text.measure`, `Text.wrap`, `Text.truncateWithEllipsis`
+- **Layout Helpers**: `Layout.splitRow`, `Layout.splitColumn`, `Layout.stack`, `Layout.inset`, `Layout.alignRect`
+- **Perf**: `FrameApi.framePerf`, `FramePerf`, `Perf.OpBreakdown`
 - **Widgets**: `button`, `buttonWithOptions`, `buttonWidget`, `label`, `image`, `spacer`, `separator`, `CoreWidgets`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
 - **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
 - **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
@@ -95,9 +97,13 @@ Migration notes: `docs/migration_0_0_2.md`.
 - `clampUiScale`: helper to clamp user-controlled UI scale values
 - `beginFrame`: starts a context frame with screen size, input snapshot, and optional per-frame theme/scale/registry overrides
 - `endFrame`: returns the `DrawList` for the frame
+- `setPerfEnabled`: enable/disable per-frame perf breakdown collection (disable to remove the extra op scan)
+- `framePerf`: returns per-frame perf stats (op breakdown, clip depth, draw-op buffer usage)
 - `renderFrame`: optional registry sync + backend render in one call
 
 Text metrics returned by `Text.measure` and `Text.wrap` are in logical UI pixels (the same space used by `DrawList` geometry).
+
+`Layout` helpers also operate in logical UI pixels and are intended to replace repeated manual rect math in app code.
 
 ### Example Usage
 
