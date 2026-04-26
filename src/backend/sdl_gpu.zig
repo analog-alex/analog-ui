@@ -1,6 +1,6 @@
 const std = @import("std");
 const DrawList = @import("../core/draw_list.zig").DrawList;
-const Font = @import("../font/font.zig").Font;
+const FontRegistry = @import("../font/registry.zig").FontRegistry;
 const RenderOptions = @import("common.zig").RenderOptions;
 const sdl = @import("sdl_shared.zig");
 
@@ -22,9 +22,9 @@ pub const GpuBackend = struct {
         _ = self;
     }
 
-    pub fn syncFont(self: *GpuBackend, font: *Font, cmd: *sdl.SDL_GPUCommandBuffer) !void {
+    pub fn syncFonts(self: *GpuBackend, font_registry: *FontRegistry, cmd: *sdl.SDL_GPUCommandBuffer) !void {
         _ = self;
-        _ = font;
+        _ = font_registry;
         _ = cmd;
         return error.GpuBackendNotImplemented;
     }
@@ -45,16 +45,18 @@ test "GpuBackend methods report not implemented" {
         .device = undefined,
     };
 
-    var font = try Font.initTtf(std.testing.allocator, .{
+    var registry = FontRegistry.init(std.testing.allocator);
+    defer registry.deinit();
+
+    _ = try registry.addTtf("body", .{
         .ttf_bytes = "fake-font-bytes",
         .base_px = 16,
         .dynamic_glyphs = false,
     });
-    defer font.deinit();
 
     const cmd: *sdl.SDL_GPUCommandBuffer = undefined;
 
-    try std.testing.expectError(error.GpuBackendNotImplemented, backend.syncFont(&font, cmd));
+    try std.testing.expectError(error.GpuBackendNotImplemented, backend.syncFonts(&registry, cmd));
     try std.testing.expectError(
         error.GpuBackendNotImplemented,
         backend.render(.{ .ops = &.{}, .stats = .{} }, cmd, .{ .width = 960, .height = 540 }, .{}),

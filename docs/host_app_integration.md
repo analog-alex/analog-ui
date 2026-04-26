@@ -6,7 +6,7 @@ It focuses on:
 
 - SDL lifecycle ownership
 - backend setup and teardown order
-- font and image asset loading responsibilities
+- font registration/fallback and image asset loading responsibilities
 - frame loop expectations and common pitfalls
 
 ## Ownership Boundaries
@@ -24,7 +24,7 @@ Host app owns:
 `analog_ui` owns:
 
 - UI state types (`InputState`, `WidgetState`, `Context` internals)
-- font atlas metadata and glyph cache (`Font`)
+- font atlas metadata, glyph cache, and registry state (`Font`, `FontRegistry`)
 - backend-owned transient resources created by `RendererBackend.init`
 
 Rule of thumb: if a resource comes from an SDL constructor in your code, your code tears it down.
@@ -37,8 +37,8 @@ Typical startup order:
 2. Create window
 3. Create `SDL_Renderer`
 4. Initialize `ui.RendererBackend`
-5. Load TTF bytes and initialize `ui.Font`
-6. Upload initial font pages with `backend.syncFont(&font)`
+5. Load TTF bytes and register fonts in `ui.FontRegistry`
+6. Provide the registry to `FrameApi.renderFrame` (or `backend.syncFonts`) before drawing text
 
 ```zig
 const std = @import("std");
@@ -64,15 +64,22 @@ defer backend.deinit();
 const ttf_bytes = try std.fs.cwd().readFileAlloc(alloc, "assets/Roboto-Bold.ttf", std.math.maxInt(usize));
 defer alloc.free(ttf_bytes);
 
-var font = try ui.Font.initTtf(alloc, .{
+var fonts = ui.FontRegistry.init(alloc);
+defer fonts.deinit();
+
+const body = try fonts.addTtf("Body", .{
     .ttf_bytes = ttf_bytes,
     .base_px = 18,
     .charset = .ascii,
     .dynamic_glyphs = true,
 });
-defer font.deinit();
 
-try backend.syncFont(&font);
+var theme = ui.Theme.default;
+theme.font_body = body;
+theme.font_heading = body;
+theme.font_mono = body;
+
+try backend.syncFonts(&fonts);
 ```
 
 ## Frame Loop Responsibilities
@@ -83,7 +90,7 @@ Per frame, the host app should:
 2. Update `InputState` from events
 3. Build UI/widget state
 4. Build or obtain `DrawList`
-5. Call `backend.syncFont(&font)` when glyph pages may be dirty
+5. Call `backend.syncFonts(&fonts)` when glyph pages may be dirty
 6. Call `backend.render(draw_list, .{ ... })`
 7. Present the renderer
 
@@ -91,7 +98,8 @@ Notes:
 
 - Call `widget_state.beginFrame()` once at frame start before evaluating widgets.
 - `RendererBackend.render` validates `DrawList` contract and returns errors for invalid input or SDL failures.
-- Keep `dpi_scale` and `font_atlas_scale` in `RenderOptions` aligned with your window scale strategy.
+- Scale is explicit via `ScaleState`: `effective_scale = dpi_scale * user_scale * app_scale`.
+- Keep `font_atlas_scale` aligned with how font atlases were rasterized.
 
 If you want a stable orchestration surface instead of wiring each piece manually, use `ui.FrameApi`:
 
@@ -102,13 +110,13 @@ If you want a stable orchestration surface instead of wiring each piece manually
 
 ## Font Loading Expectations
 
-`ui.Font.initTtf` duplicates `ttf_bytes` into owned memory, so your original byte slice may be freed after init.
+`ui.Font.initTtf` duplicates `ttf_bytes` into owned memory, so your original byte slice may be freed after registration.
 
 Key expectations:
 
 - Pass a valid allocator and call `font.deinit()`.
-- Keep the `Font` alive for as long as any backend render path reads it.
-- If dynamic glyphs are enabled and new text appears, call `backend.syncFont(&font)` again before rendering text that needs those glyphs.
+- Keep the `FontRegistry` alive for as long as any backend render path reads it.
+- If dynamic glyphs are enabled and new text appears, call `backend.syncFonts(&fonts)` again (or use `FrameApi.renderFrame` with `.font_registry = &fonts`) before rendering text that needs those glyphs.
 - The backend does not hot-reload font files from disk; your app decides if and when fonts are reloaded.
 
 ## Image Loading Expectations

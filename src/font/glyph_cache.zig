@@ -8,6 +8,7 @@ pub const GlyphEntry = struct {
     size_px: [2]u16,
     bearing_px: [2]i16,
     advance_px: f32,
+    is_missing: bool,
 };
 
 pub const GlyphCache = struct {
@@ -43,6 +44,7 @@ test "GlyphCache hit/miss" {
         .size_px = .{ 8, 10 },
         .bearing_px = .{ 1, -2 },
         .advance_px = 7,
+        .is_missing = false,
     });
 
     const found = cache.get('A');

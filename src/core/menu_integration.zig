@@ -6,6 +6,7 @@ const Color = @import("draw_list.zig").Color;
 const DrawList = @import("draw_list.zig").DrawList;
 const DrawOp = @import("draw_list.zig").DrawOp;
 const Rect = @import("draw_list.zig").Rect;
+const Theme = @import("theme.zig").Theme;
 const widgets = @import("widgets.zig");
 const events = @import("../platform/sdl_events.zig");
 
@@ -163,6 +164,7 @@ pub fn menuFrame(
     widget_state: *widgets.WidgetState,
     input: InputState,
     screen: struct { w: f32 = 960, h: f32 = 540 },
+    theme: Theme,
 ) !DrawList {
     widget_state.beginFrame();
 
@@ -219,7 +221,7 @@ pub fn menuFrame(
         try builder.push(.{ .text_run = .{
             .rect = layout.theme_rects[i],
             .text = theme_labels[i],
-            .font_handle = 0,
+            .font_handle = theme.font_body,
             .size_px = 18,
             .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
             .alignment = .center,
@@ -238,7 +240,7 @@ pub fn menuFrame(
     try builder.push(.{ .text_run = .{
         .rect = layout.pulse_rect,
         .text = if (state.pulse_enabled) "Pulse: On" else "Pulse: Off",
-        .font_handle = 0,
+        .font_handle = theme.font_body,
         .size_px = 18,
         .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
         .alignment = .center,
@@ -255,7 +257,7 @@ pub fn menuFrame(
     try builder.push(.{ .text_run = .{
         .rect = layout.quit_rect,
         .text = "Quit",
-        .font_handle = 0,
+        .font_handle = theme.font_body,
         .size_px = 18,
         .color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
         .alignment = .center,
@@ -313,7 +315,7 @@ test "menu integration mouse click changes selection and emits valid draw list" 
 
     input = events.fromEvents(&.{ .{ .mouse_move = .{ .x = cx, .y = cy } }, .mouse_button_down }, input);
     {
-        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{});
+        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{}, Theme.default);
         defer std.testing.allocator.free(draw_list.ops);
         try draw_list.validateContract();
         try expectMenuOutputShape(draw_list);
@@ -322,7 +324,7 @@ test "menu integration mouse click changes selection and emits valid draw list" 
 
     input = events.fromEvents(&.{.mouse_button_up}, input);
     {
-        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{});
+        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{}, Theme.default);
         defer std.testing.allocator.free(draw_list.ops);
         try draw_list.validateContract();
         try expectMenuOutputShape(draw_list);
@@ -341,7 +343,7 @@ test "menu integration nav focus and accept toggles pulse" {
     var step: usize = 0;
     while (step < 5) : (step += 1) {
         input = events.fromEvents(&.{.{ .key_down = .down }}, input);
-        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{});
+        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{}, Theme.default);
         defer std.testing.allocator.free(draw_list.ops);
         try draw_list.validateContract();
         try expectMenuOutputShape(draw_list);
@@ -349,7 +351,7 @@ test "menu integration nav focus and accept toggles pulse" {
 
     input = events.fromEvents(&.{.{ .key_down = .enter }}, input);
     {
-        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{});
+        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{}, Theme.default);
         defer std.testing.allocator.free(draw_list.ops);
         try draw_list.validateContract();
         try expectMenuOutputShape(draw_list);
@@ -367,14 +369,14 @@ test "menu integration nav accept on quit updates running state" {
     var step: usize = 0;
     while (step < 6) : (step += 1) {
         input = events.fromEvents(&.{.{ .key_down = .down }}, input);
-        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{});
+        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{}, Theme.default);
         defer std.testing.allocator.free(draw_list.ops);
         try draw_list.validateContract();
     }
 
     input = events.fromEvents(&.{.{ .key_down = .enter }}, input);
     {
-        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{});
+        const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, input, .{}, Theme.default);
         defer std.testing.allocator.free(draw_list.ops);
         try draw_list.validateContract();
         try std.testing.expect(!menu_state.running);
@@ -384,7 +386,7 @@ test "menu integration nav accept on quit updates running state" {
 test "menu integration draw list keeps op count in sync" {
     var menu_state = MenuState{};
     var widget_state = widgets.WidgetState{};
-    const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, InputState.init(), .{});
+    const draw_list = try menuFrame(std.testing.allocator, &menu_state, &widget_state, InputState.init(), .{}, Theme.default);
     defer std.testing.allocator.free(draw_list.ops);
 
     try std.testing.expectEqual(draw_list.stats.op_count, draw_list.ops.len);

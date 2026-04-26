@@ -72,9 +72,9 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 
 ### Key Exports (`src/root.zig`)
 
-- **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `WidgetState`
+- **Core Types**: `Id`, `InputState`, `DrawList`, `Rect`, `Builder`, `Context`, `Theme`, `ScaleState`, `WidgetState`
 - **Frame API**: `FrameApi.collectInput`, `FrameApi.collectSdlInput`, `FrameApi.beginFrame`, `FrameApi.endFrame`, `FrameApi.renderFrame`
-- **Fonts**: `Font`
+- **Fonts**: `Font`, `FontRegistry`, `FontHandle`
 - **Widgets**: `button`, `buttonWithOptions`, `buttonWidget`, `label`, `image`, `spacer`, `separator`, `CoreWidgets`, `moveFocusLinear`, `ButtonInteraction`, `ButtonOptions`, `FocusItem`
 - **Input**: `inputFromEvents(events: []SdlEvent, prev: InputState) InputState`
 - **Backends**: `RendererBackend` (SDL3 renderer), `GpuBackend` (SDL GPU)
@@ -84,9 +84,11 @@ Host app lifecycle, ownership boundaries, backend setup, and asset-loading expec
 `FrameApi` provides the stable per-frame orchestration layer around context/input/fonts/rendering:
 
 - `collectInput` / `collectSdlInput`: map events into `InputState`
-- `beginFrame`: starts a context frame with screen size, input snapshot, and optional default font
+- `computeDpiScale`: helper for SDL window DPI detection
+- `clampUiScale`: helper to clamp user-controlled UI scale values
+- `beginFrame`: starts a context frame with screen size, input snapshot, and optional per-frame theme/scale/registry overrides
 - `endFrame`: returns the `DrawList` for the frame
-- `renderFrame`: optional font sync + backend render in one call
+- `renderFrame`: optional registry sync + backend render in one call
 
 ### Example Usage
 
@@ -108,13 +110,20 @@ const cwd = std.Io.Dir.cwd();
 const ttf_bytes = try cwd.readFileAlloc(io, "assets/Roboto-Bold.ttf", alloc, .limited(std.math.maxInt(usize)));
 defer alloc.free(ttf_bytes);
 
-var font = try ui.Font.initTtf(alloc, .{
+var fonts = ui.FontRegistry.init(alloc);
+defer fonts.deinit();
+
+const body = try fonts.addTtf("Body", .{
     .ttf_bytes = ttf_bytes,
     .base_px = 16,
     .charset = .ascii,
     .dynamic_glyphs = true,
 });
-defer font.deinit();
+
+var theme = ui.Theme.default;
+theme.font_body = body;
+theme.font_heading = body;
+theme.font_mono = body;
 ```
 
 Per-frame pass (input -> widget logic -> draw list -> render):
@@ -123,9 +132,11 @@ Per-frame pass (input -> widget logic -> draw list -> render):
 fn renderFrame(
     ctx: *ui.Context,
     backend: *ui.RendererBackend,
-    font: *ui.Font,
+    fonts: *ui.FontRegistry,
+    theme: ui.Theme,
     events: []const sdl.SDL_Event,
     input_prev: *ui.InputState,
+    dpi_scale: f32,
 ) !void {
     const input = ui.FrameApi.collectSdlInput(events, input_prev.*);
     input_prev.* = input;
@@ -133,7 +144,8 @@ fn renderFrame(
     ui.FrameApi.beginFrame(ctx, .{
         .screen = .{ .w = 1280, .h = 720 },
         .input = input,
-        .default_font = font,
+        .font_registry = fonts,
+        .theme = theme,
     });
 
     // Build Clay/UI layout for this frame here.
@@ -141,9 +153,13 @@ fn renderFrame(
     const draw_list = try ui.FrameApi.endFrame(ctx);
 
     try ui.FrameApi.renderFrame(backend, draw_list, .{
-        .sync_font = font,
-        .dpi_scale = 1.0,
-        .font_atlas_scale = 1.0,
+        .font_registry = fonts,
+        .scale = .{
+            .dpi_scale = dpi_scale,
+            .user_scale = 1.0,
+            .app_scale = 1.0,
+        },
+        .font_atlas_scale = dpi_scale,
     });
 }
 ```
