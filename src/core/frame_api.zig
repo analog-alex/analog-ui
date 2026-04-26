@@ -1,6 +1,7 @@
 const std = @import("std");
 const Context = @import("context.zig").Context;
 const DrawList = @import("draw_list.zig").DrawList;
+const FramePerf = @import("perf.zig").FramePerf;
 const InputState = @import("input.zig").InputState;
 const Theme = @import("theme.zig").Theme;
 const ScaleState = @import("scale.zig").ScaleState;
@@ -95,6 +96,10 @@ pub fn endFrame(context: *Context) !DrawList {
     return context.endFrame();
 }
 
+pub fn framePerf(context: *const Context) FramePerf {
+    return context.framePerf();
+}
+
 pub fn toRenderOptions(options: FrameRenderOptions) RenderOptions {
     return .{
         .scale = options.scale,
@@ -172,4 +177,19 @@ test "toRenderOptions maps frame render options" {
     try std.testing.expectEqual(@as(f32, 1.2), render_options.scale.user_scale);
     try std.testing.expectEqual(@as(f32, 0.75), render_options.scale.app_scale);
     try std.testing.expectEqual(@as(f32, 2.0), render_options.font_atlas_scale.?);
+}
+
+test "framePerf exposes per-frame operation stats" {
+    var context = try Context.init(std.testing.allocator, .{});
+    defer context.deinit();
+
+    beginFrame(&context, .{
+        .screen = .{ .w = 320, .h = 180 },
+        .input = InputState.init(),
+    });
+    _ = try endFrame(&context);
+
+    const perf = framePerf(&context);
+    try std.testing.expectEqual(@as(u64, 1), perf.frame_index);
+    try std.testing.expectEqual(perf.op_count, perf.op_breakdown.clip_push + perf.op_breakdown.clip_pop + perf.op_breakdown.rect_filled + perf.op_breakdown.rect_stroke + perf.op_breakdown.text_run + perf.op_breakdown.image + perf.op_breakdown.custom);
 }

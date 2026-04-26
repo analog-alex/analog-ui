@@ -5,6 +5,7 @@ const DrawOp = @import("draw_list.zig").DrawOp;
 const DrawList = @import("draw_list.zig").DrawList;
 const Rect = @import("draw_list.zig").Rect;
 const Color = @import("draw_list.zig").Color;
+const FramePerf = @import("perf.zig").FramePerf;
 const Theme = @import("theme.zig").Theme;
 const FontRegistry = @import("../font/registry.zig").FontRegistry;
 const ScaleState = @import("scale.zig").ScaleState;
@@ -19,6 +20,8 @@ pub const Context = struct {
     scale: ScaleState,
     font_registry: ?*FontRegistry,
     draw_ops: std.array_list.Managed(DrawOp),
+    frame_index: u64,
+    last_perf: FramePerf,
 
     pub fn init(allocator: std.mem.Allocator, options: struct {
         theme: Theme = Theme.default,
@@ -52,6 +55,8 @@ pub const Context = struct {
             .scale = options.scale,
             .font_registry = options.font_registry,
             .draw_ops = std.array_list.Managed(DrawOp).init(allocator),
+            .frame_index = 0,
+            .last_perf = .{},
         };
     }
 
@@ -175,6 +180,10 @@ pub const Context = struct {
         clay.c.Clay_ResetMeasureTextCache();
     }
 
+    pub fn framePerf(self: *const Context) FramePerf {
+        return self.last_perf;
+    }
+
     pub fn beginFrame(self: *Context, options: struct {
         screen: struct { w: f32, h: f32 },
         input: InputState,
@@ -272,10 +281,15 @@ pub const Context = struct {
             }
         }
 
-        return DrawList{
+        const draw_list = DrawList{
             .ops = self.draw_ops.items,
             .stats = .{ .op_count = @intCast(self.draw_ops.items.len) },
         };
+
+        self.frame_index += 1;
+        self.last_perf = FramePerf.fromDrawList(draw_list, self.draw_ops.capacity, self.frame_index);
+
+        return draw_list;
     }
 };
 

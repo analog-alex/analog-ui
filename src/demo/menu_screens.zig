@@ -1,6 +1,7 @@
 const std = @import("std");
 const ui = @import("analog_ui");
 const core_widgets = ui.CoreWidgets;
+const ui_layout = ui.Layout;
 
 pub const Screen = enum {
     title,
@@ -99,21 +100,14 @@ fn layoutForScreen(screen_w: f32, screen_h: f32, count: usize) ScreenLayout {
         .h = panel_h,
     };
 
-    const button_w = panel_rect.w - 72.0;
-    const button_h = 52.0;
-    const button_gap = 12.0;
-    const count_f = @as(f32, @floatFromInt(count));
-    const buttons_h = count_f * button_h + @as(f32, @floatFromInt(if (count > 0) count - 1 else 0)) * button_gap;
-    const buttons_start_y = panel_rect.y + panel_rect.h - buttons_h - 32.0;
-
     var button_rects: [4]ui.Rect = undefined;
-    for (0..count) |i| {
-        button_rects[i] = .{
-            .x = panel_rect.x + 36.0,
-            .y = buttons_start_y + @as(f32, @floatFromInt(i)) * (button_h + button_gap),
-            .w = button_w,
-            .h = button_h,
-        };
+    if (count > 0) {
+        ui_layout.splitColumn(button_rects[0..count], panel_rect, .{
+            .padding = ui_layout.Padding{ .top = 26.0, .right = 36.0, .bottom = 32.0, .left = 36.0 },
+            .gap = 12.0,
+            .item_size = 52.0,
+            .alignment = .end,
+        });
     }
 
     return .{

@@ -93,6 +93,7 @@ Per frame, the host app should:
 5. Call `backend.syncFonts(&fonts)` when glyph pages may be dirty
 6. Call `backend.render(draw_list, .{ ... })`
 7. Present the renderer
+8. (Optional) Read `FrameApi.framePerf` for per-frame diagnostics
 
 Notes:
 
@@ -106,6 +107,7 @@ If you want a stable orchestration surface instead of wiring each piece manually
 - `FrameApi.collectInput` / `FrameApi.collectSdlInput`
 - `FrameApi.beginFrame`
 - `FrameApi.endFrame`
+- `FrameApi.framePerf`
 - `FrameApi.renderFrame`
 
 ## Font Loading Expectations
