@@ -96,6 +96,14 @@ pub fn endFrame(context: *Context) !DrawList {
     return context.endFrame();
 }
 
+pub fn setPerfEnabled(context: *Context, enabled: bool) void {
+    context.setPerfEnabled(enabled);
+}
+
+pub fn perfEnabled(context: *const Context) bool {
+    return context.perfEnabled();
+}
+
 pub fn framePerf(context: *const Context) FramePerf {
     return context.framePerf();
 }
@@ -192,4 +200,13 @@ test "framePerf exposes per-frame operation stats" {
     const perf = framePerf(&context);
     try std.testing.expectEqual(@as(u64, 1), perf.frame_index);
     try std.testing.expectEqual(perf.op_count, perf.op_breakdown.clip_push + perf.op_breakdown.clip_pop + perf.op_breakdown.rect_filled + perf.op_breakdown.rect_stroke + perf.op_breakdown.text_run + perf.op_breakdown.image + perf.op_breakdown.custom);
+}
+
+test "setPerfEnabled toggles context perf collection" {
+    var context = try Context.init(std.testing.allocator, .{});
+    defer context.deinit();
+
+    try std.testing.expect(perfEnabled(&context));
+    setPerfEnabled(&context, false);
+    try std.testing.expect(!perfEnabled(&context));
 }

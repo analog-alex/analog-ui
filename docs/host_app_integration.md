@@ -107,8 +107,11 @@ If you want a stable orchestration surface instead of wiring each piece manually
 - `FrameApi.collectInput` / `FrameApi.collectSdlInput`
 - `FrameApi.beginFrame`
 - `FrameApi.endFrame`
+- `FrameApi.setPerfEnabled`
 - `FrameApi.framePerf`
 - `FrameApi.renderFrame`
+
+If you want to minimize per-frame bookkeeping overhead, call `FrameApi.setPerfEnabled(context, false)` and keep perf collection off outside debug/profiling sessions.
 
 ## Font Loading Expectations
 

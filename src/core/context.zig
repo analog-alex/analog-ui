@@ -20,6 +20,7 @@ pub const Context = struct {
     scale: ScaleState,
     font_registry: ?*FontRegistry,
     draw_ops: std.array_list.Managed(DrawOp),
+    perf_enabled: bool,
     frame_index: u64,
     last_perf: FramePerf,
 
@@ -27,6 +28,7 @@ pub const Context = struct {
         theme: Theme = Theme.default,
         scale: ScaleState = .{},
         font_registry: ?*FontRegistry = null,
+        perf_enabled: bool = true,
     }) !Context {
         const arena_size = clay.Clay_MinMemorySize();
         const memory = try allocator.alloc(u8, arena_size);
@@ -55,6 +57,7 @@ pub const Context = struct {
             .scale = options.scale,
             .font_registry = options.font_registry,
             .draw_ops = std.array_list.Managed(DrawOp).init(allocator),
+            .perf_enabled = options.perf_enabled,
             .frame_index = 0,
             .last_perf = .{},
         };
@@ -184,6 +187,14 @@ pub const Context = struct {
         return self.last_perf;
     }
 
+    pub fn setPerfEnabled(self: *Context, enabled: bool) void {
+        self.perf_enabled = enabled;
+    }
+
+    pub fn perfEnabled(self: *const Context) bool {
+        return self.perf_enabled;
+    }
+
     pub fn beginFrame(self: *Context, options: struct {
         screen: struct { w: f32, h: f32 },
         input: InputState,
@@ -287,7 +298,17 @@ pub const Context = struct {
         };
 
         self.frame_index += 1;
-        self.last_perf = FramePerf.fromDrawList(draw_list, self.draw_ops.capacity, self.frame_index);
+        if (self.perf_enabled) {
+            self.last_perf = FramePerf.fromDrawList(draw_list, self.draw_ops.capacity, self.frame_index);
+        } else {
+            self.last_perf = .{
+                .frame_index = self.frame_index,
+                .op_count = draw_list.stats.op_count,
+                .draw_op_capacity = self.draw_ops.capacity,
+                .draw_op_bytes_reserved = self.draw_ops.capacity * @sizeOf(DrawOp),
+                .draw_op_bytes_used = draw_list.ops.len * @sizeOf(DrawOp),
+            };
+        }
 
         return draw_list;
     }
@@ -312,4 +333,20 @@ test "context begin/end frame produces draw list" {
     const dl = try ctx.endFrame();
 
     try std.testing.expect(dl.stats.op_count == dl.ops.len);
+}
+
+test "context can disable perf breakdown collection" {
+    var ctx = try Context.init(std.testing.allocator, .{ .perf_enabled = false });
+    defer ctx.deinit();
+
+    ctx.beginFrame(.{
+        .screen = .{ .w = 320, .h = 180 },
+        .input = InputState.init(),
+    });
+    _ = try ctx.endFrame();
+
+    const perf = ctx.framePerf();
+    try std.testing.expectEqual(@as(u64, 1), perf.frame_index);
+    try std.testing.expectEqual(@as(u32, 0), perf.op_breakdown.clip_push);
+    try std.testing.expectEqual(@as(u32, 0), perf.op_breakdown.rect_filled);
 }
