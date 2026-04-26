@@ -6,7 +6,8 @@ const DrawList = @import("draw_list.zig").DrawList;
 const Rect = @import("draw_list.zig").Rect;
 const Color = @import("draw_list.zig").Color;
 const Theme = @import("theme.zig").Theme;
-const Font = @import("../font/font.zig").Font;
+const FontRegistry = @import("../font/registry.zig").FontRegistry;
+const ScaleState = @import("scale.zig").ScaleState;
 const utf8 = @import("../font/utf8.zig");
 
 pub const Context = struct {
@@ -15,14 +16,15 @@ pub const Context = struct {
     arena: clay.Clay_Arena,
     layout_dims: clay.Clay_Dimensions,
     theme: Theme,
-    default_font: ?*Font,
+    scale: ScaleState,
+    font_registry: ?*FontRegistry,
     draw_ops: std.array_list.Managed(DrawOp),
 
     pub fn init(allocator: std.mem.Allocator, options: struct {
-        dpi_scale: f32 = 1.0,
         theme: Theme = Theme.default,
+        scale: ScaleState = .{},
+        font_registry: ?*FontRegistry = null,
     }) !Context {
-        _ = options.dpi_scale;
         const arena_size = clay.Clay_MinMemorySize();
         const memory = try allocator.alloc(u8, arena_size);
         const arena = clay.Clay_Arena{
@@ -47,7 +49,8 @@ pub const Context = struct {
             .arena = arena,
             .layout_dims = layout_dims,
             .theme = options.theme,
-            .default_font = null,
+            .scale = options.scale,
+            .font_registry = options.font_registry,
             .draw_ops = std.array_list.Managed(DrawOp).init(allocator),
         };
     }
@@ -83,29 +86,7 @@ pub const Context = struct {
         return .{ .x = bb.x, .y = bb.y, .w = bb.width, .h = bb.height };
     }
 
-    fn measureTextCallback(text: clay.c.Clay_StringSlice, config: [*c]clay.c.Clay_TextElementConfig, user_data: ?*anyopaque) callconv(.c) clay.Clay_Dimensions {
-        const len: usize = @intCast(@max(text.length, 0));
-        const bytes = if (len == 0) "" else blk: {
-            const ptr: [*]const u8 = @ptrCast(text.chars);
-            break :blk ptr[0..len];
-        };
-
-        if (user_data) |ud| {
-            const font: *Font = @ptrCast(@alignCast(ud));
-            if (font.measure(bytes)) |size| {
-                const measured_height = if (config != null and config.*.lineHeight > 0)
-                    @as(f32, @floatFromInt(config.*.lineHeight))
-                else
-                    size.height;
-                return .{
-                    .width = size.width,
-                    .height = measured_height,
-                };
-            } else |_| {
-                // fall back to heuristic path below
-            }
-        }
-
+    fn fallbackMeasure(bytes: []const u8, config: [*c]clay.c.Clay_TextElementConfig) clay.Clay_Dimensions {
         var it = utf8.Utf8Iterator.init(bytes);
         var codepoint_count: usize = 0;
         while (it.nextCodepoint() catch null) |cp| {
@@ -128,16 +109,81 @@ pub const Context = struct {
         };
     }
 
-    pub fn setDefaultFont(self: *Context, font: *Font) void {
-        self.default_font = font;
+    fn measuredHeight(default_height: f32, config: [*c]clay.c.Clay_TextElementConfig) f32 {
+        if (config != null and config.*.lineHeight > 0) {
+            return @floatFromInt(config.*.lineHeight);
+        }
+        return default_height;
+    }
+
+    fn measureWithRegistry(self: *Context, bytes: []const u8, config: [*c]clay.c.Clay_TextElementConfig) ?clay.Clay_Dimensions {
+        const registry = self.font_registry orelse return null;
+
+        const handle = if (config != null and config.*.fontId != 0)
+            config.*.fontId
+        else
+            self.theme.font_body;
+
+        if (handle == 0) return null;
+        const base_font = registry.getFont(handle) orelse return null;
+
+        const size = registry.measureText(handle, bytes) catch return null;
+        const requested_px: f32 = if (config != null and config.*.fontSize > 0)
+            @floatFromInt(config.*.fontSize)
+        else
+            base_font.base_px;
+        const size_scale = if (base_font.base_px > 0.0) requested_px / base_font.base_px else 1.0;
+
+        return .{
+            .width = size.width * size_scale,
+            .height = measuredHeight(size.height * size_scale, config),
+        };
+    }
+
+    fn measureTextCallback(text: clay.c.Clay_StringSlice, config: [*c]clay.c.Clay_TextElementConfig, user_data: ?*anyopaque) callconv(.c) clay.Clay_Dimensions {
+        const len: usize = @intCast(@max(text.length, 0));
+        const bytes = if (len == 0) "" else blk: {
+            const ptr: [*]const u8 = @ptrCast(text.chars);
+            break :blk ptr[0..len];
+        };
+
+        if (user_data) |ud| {
+            const context: *Context = @ptrCast(@alignCast(ud));
+            if (context.measureWithRegistry(bytes, config)) |dims| {
+                return dims;
+            }
+        }
+
+        return fallbackMeasure(bytes, config);
+    }
+
+    pub fn setTheme(self: *Context, theme: Theme) void {
+        self.theme = theme;
+        clay.c.Clay_ResetMeasureTextCache();
+    }
+
+    pub fn setScale(self: *Context, scale: ScaleState) void {
+        self.scale = scale;
+    }
+
+    pub fn getScale(self: *const Context) ScaleState {
+        return self.scale;
+    }
+
+    pub fn setFontRegistry(self: *Context, registry: ?*FontRegistry) void {
+        self.font_registry = registry;
+        clay.c.Clay_ResetMeasureTextCache();
     }
 
     pub fn beginFrame(self: *Context, options: struct {
         screen: struct { w: f32, h: f32 },
         input: InputState,
+        scale: ?ScaleState = null,
     }) void {
-        const measure_user_data: ?*anyopaque = if (self.default_font) |f| @ptrCast(f) else null;
-        clay.c.Clay_SetMeasureTextFunction(measureTextCallback, measure_user_data);
+        if (options.scale) |scale| {
+            self.scale = scale;
+        }
+        clay.c.Clay_SetMeasureTextFunction(measureTextCallback, @ptrCast(self));
 
         self.layout_dims = clay.Clay_Dimensions{
             .width = options.screen.w,

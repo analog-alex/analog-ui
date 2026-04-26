@@ -174,6 +174,7 @@ pub fn frame(
     input: ui.InputState,
     options: struct {
         screen: struct { w: f32 = 960, h: f32 = 540 } = .{},
+        theme: ui.Theme = ui.Theme.default,
     },
 ) !FrameOutput {
     widget_state.beginFrame();
@@ -211,14 +212,15 @@ pub fn frame(
         .w = layout.panel_rect.w,
         .h = 28.0,
     };
-    try core_widgets.label(&builder, title_rect, header.title, .{
+    try core_widgets.label(&builder, options.theme, title_rect, header.title, .{
+        .font_role = .heading,
         .size_px = 20,
         .color = .{ .r = 0.95, .g = 0.97, .b = 1.0, .a = 1.0 },
         .alignment = .center,
     });
 
     const subtitle_rect = core_widgets.spacer(title_rect, 34.0, .vertical);
-    try core_widgets.label(&builder, .{
+    try core_widgets.label(&builder, options.theme, .{
         .x = subtitle_rect.x,
         .y = subtitle_rect.y,
         .w = subtitle_rect.w,
@@ -239,56 +241,56 @@ pub fn frame(
 
     switch (state.current_screen) {
         .title => {
-            const start = try core_widgets.button(&builder, widget_state, title_start_id, layout.button_rects[0], "Start Game", input, buttonStyle(.{ 66, 140, 196 }));
+            const start = try core_widgets.button(&builder, options.theme, widget_state, title_start_id, layout.button_rects[0], "Start Game", input, buttonStyle(.{ 66, 140, 196 }));
             if (start.pressed) {
                 setScreen(state, widget_state, .pause);
             }
 
-            const settings = try core_widgets.button(&builder, widget_state, title_settings_id, layout.button_rects[1], "Settings", input, buttonStyle(.{ 78, 156, 98 }));
+            const settings = try core_widgets.button(&builder, options.theme, widget_state, title_settings_id, layout.button_rects[1], "Settings", input, buttonStyle(.{ 78, 156, 98 }));
             if (settings.pressed) {
                 state.settings_return_screen = .title;
                 setScreen(state, widget_state, .settings);
             }
 
-            const quit = try core_widgets.button(&builder, widget_state, title_quit_id, layout.button_rects[2], "Quit", input, buttonStyle(.{ 154, 46, 58 }));
+            const quit = try core_widgets.button(&builder, options.theme, widget_state, title_quit_id, layout.button_rects[2], "Quit", input, buttonStyle(.{ 154, 46, 58 }));
             if (quit.pressed) {
                 state.running = false;
             }
         },
         .pause => {
-            const resume_btn = try core_widgets.button(&builder, widget_state, pause_resume_id, layout.button_rects[0], "Resume", input, buttonStyle(.{ 66, 140, 196 }));
+            const resume_btn = try core_widgets.button(&builder, options.theme, widget_state, pause_resume_id, layout.button_rects[0], "Resume", input, buttonStyle(.{ 66, 140, 196 }));
             if (resume_btn.pressed) {
                 setScreen(state, widget_state, .title);
             }
 
-            const settings_btn = try core_widgets.button(&builder, widget_state, pause_settings_id, layout.button_rects[1], "Settings", input, buttonStyle(.{ 78, 156, 98 }));
+            const settings_btn = try core_widgets.button(&builder, options.theme, widget_state, pause_settings_id, layout.button_rects[1], "Settings", input, buttonStyle(.{ 78, 156, 98 }));
             if (settings_btn.pressed) {
                 state.settings_return_screen = .pause;
                 setScreen(state, widget_state, .settings);
             }
 
-            const back_to_title_btn = try core_widgets.button(&builder, widget_state, pause_title_id, layout.button_rects[2], "Back To Title", input, buttonStyle(.{ 120, 118, 170 }));
+            const back_to_title_btn = try core_widgets.button(&builder, options.theme, widget_state, pause_title_id, layout.button_rects[2], "Back To Title", input, buttonStyle(.{ 120, 118, 170 }));
             if (back_to_title_btn.pressed) {
                 setScreen(state, widget_state, .title);
             }
         },
         .settings => {
-            const music = try core_widgets.button(&builder, widget_state, settings_music_id, layout.button_rects[0], if (state.music_enabled) "Music: On" else "Music: Off", input, buttonStyle(.{ 76, 146, 198 }));
+            const music = try core_widgets.button(&builder, options.theme, widget_state, settings_music_id, layout.button_rects[0], if (state.music_enabled) "Music: On" else "Music: Off", input, buttonStyle(.{ 76, 146, 198 }));
             if (music.pressed) {
                 state.music_enabled = !state.music_enabled;
             }
 
-            const sfx = try core_widgets.button(&builder, widget_state, settings_sfx_id, layout.button_rects[1], if (state.sfx_enabled) "SFX: On" else "SFX: Off", input, buttonStyle(.{ 86, 162, 120 }));
+            const sfx = try core_widgets.button(&builder, options.theme, widget_state, settings_sfx_id, layout.button_rects[1], if (state.sfx_enabled) "SFX: On" else "SFX: Off", input, buttonStyle(.{ 86, 162, 120 }));
             if (sfx.pressed) {
                 state.sfx_enabled = !state.sfx_enabled;
             }
 
-            const theme = try core_widgets.button(&builder, widget_state, settings_theme_id, layout.button_rects[2], theme_setting_labels[state.selected_theme], input, buttonStyle(.{ 184, 128, 72 }));
+            const theme = try core_widgets.button(&builder, options.theme, widget_state, settings_theme_id, layout.button_rects[2], theme_setting_labels[state.selected_theme], input, buttonStyle(.{ 184, 128, 72 }));
             if (theme.pressed) {
                 state.selected_theme = (state.selected_theme + 1) % theme_setting_labels.len;
             }
 
-            const back = try core_widgets.button(&builder, widget_state, settings_back_id, layout.button_rects[3], "Back", input, buttonStyle(.{ 120, 118, 170 }));
+            const back = try core_widgets.button(&builder, options.theme, widget_state, settings_back_id, layout.button_rects[3], "Back", input, buttonStyle(.{ 120, 118, 170 }));
             if (back.pressed) {
                 setScreen(state, widget_state, state.settings_return_screen);
             }

@@ -129,7 +129,7 @@ pub const Font = struct {
         return .{ .page = @intCast(new_page_idx), .rect = rect };
     }
 
-    fn ensureGlyph(self: *Font, codepoint: u21) !glyph_cache_mod.GlyphEntry {
+    pub fn ensureGlyph(self: *Font, codepoint: u21) !glyph_cache_mod.GlyphEntry {
         if (self.cache.get(codepoint)) |entry| {
             return entry;
         }
@@ -143,6 +143,7 @@ pub const Font = struct {
                 .size_px = .{ 0, 0 },
                 .bearing_px = .{ 0, 0 },
                 .advance_px = self.base_px * 0.55,
+                .is_missing = true,
             };
         }
 
@@ -155,6 +156,7 @@ pub const Font = struct {
                 .size_px = .{ 0, 0 },
                 .bearing_px = .{ 0, 0 },
                 .advance_px = self.base_px * 0.55,
+                .is_missing = true,
             };
         };
         defer if (bitmap.alpha.len > 0) bitmap.deinit(self.allocator);
@@ -186,6 +188,7 @@ pub const Font = struct {
             .size_px = .{ bitmap.width, bitmap.height },
             .bearing_px = .{ bitmap.bearing_x, bitmap.bearing_y },
             .advance_px = bitmap.advance_px,
+            .is_missing = false,
         };
 
         try self.cache.put(entry);

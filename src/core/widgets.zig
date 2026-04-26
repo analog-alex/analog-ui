@@ -5,7 +5,10 @@ const Color = @import("draw_list.zig").Color;
 const ImageId = @import("draw_list.zig").ImageId;
 const Rect = @import("draw_list.zig").Rect;
 const TextAlign = @import("draw_list.zig").TextAlign;
+const FontHandle = @import("draw_list.zig").FontHandle;
 const InputState = @import("input.zig").InputState;
+const Theme = @import("theme.zig").Theme;
+const FontRole = @import("theme.zig").FontRole;
 
 fn isId(maybe_id: ?Id, id: Id) bool {
     return maybe_id != null and maybe_id.?.value == id.value;
@@ -164,7 +167,8 @@ pub const CoreWidgets = struct {
     };
 
     pub const LabelOptions = struct {
-        font_handle: u16 = 0,
+        font_handle: ?FontHandle = null,
+        font_role: FontRole = .body,
         size_px: f32 = 16.0,
         color: Color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
         alignment: TextAlign = .left,
@@ -189,7 +193,8 @@ pub const CoreWidgets = struct {
         text_color: Color = .{ .r = 1, .g = 1, .b = 1, .a = 1 },
         radius: f32 = 8.0,
         border_thickness: f32 = 2.0,
-        font_handle: u16 = 0,
+        font_handle: ?FontHandle = null,
+        font_role: FontRole = .body,
         size_px: f32 = 18.0,
         alignment: TextAlign = .center,
         active_boost: f32 = 0.16,
@@ -220,11 +225,16 @@ pub const CoreWidgets = struct {
         };
     }
 
-    pub fn label(builder: *Builder, rect: Rect, text: []const u8, options: LabelOptions) !void {
+    fn resolveFontHandle(theme: Theme, role: FontRole, explicit: ?FontHandle) FontHandle {
+        if (explicit) |handle| return handle;
+        return theme.fontFor(role);
+    }
+
+    pub fn label(builder: *Builder, theme: Theme, rect: Rect, text: []const u8, options: LabelOptions) !void {
         try builder.push(.{ .text_run = .{
             .rect = rect,
             .text = text,
-            .font_handle = options.font_handle,
+            .font_handle = resolveFontHandle(theme, options.font_role, options.font_handle),
             .size_px = options.size_px,
             .color = options.color,
             .alignment = options.alignment,
@@ -272,6 +282,7 @@ pub const CoreWidgets = struct {
 
     pub fn button(
         builder: *Builder,
+        theme: Theme,
         state: *WidgetState,
         id: Id,
         rect: Rect,
@@ -310,8 +321,9 @@ pub const CoreWidgets = struct {
             .radius = options.radius,
         } });
 
-        try label(builder, centeredLabelRect(rect, options.size_px), text, .{
+        try label(builder, theme, centeredLabelRect(rect, options.size_px), text, .{
             .font_handle = options.font_handle,
+            .font_role = options.font_role,
             .size_px = options.size_px,
             .color = if (interaction.disabled) scaleColor(options.text_color, -0.35) else options.text_color,
             .alignment = options.alignment,
@@ -450,7 +462,7 @@ test "CoreWidgets label image and separator append draw ops" {
     var builder = Builder.init(std.testing.allocator);
     defer builder.deinit();
 
-    try CoreWidgets.label(&builder, .{ .x = 10, .y = 10, .w = 80, .h = 24 }, "HP", .{});
+    try CoreWidgets.label(&builder, Theme.default, .{ .x = 10, .y = 10, .w = 80, .h = 24 }, "HP", .{});
     try CoreWidgets.image(&builder, .{ .x = 10, .y = 40, .w = 24, .h = 24 }, 42, .{});
     try CoreWidgets.separator(&builder, .{ .x = 0, .y = 80, .w = 120, .h = 8 }, .{});
 
@@ -498,7 +510,7 @@ test "CoreWidgets button renders ops and reports pressed" {
         var builder = Builder.init(std.testing.allocator);
         defer builder.deinit();
 
-        const interaction = try CoreWidgets.button(&builder, &widget_state, button_id, rect, "Play", input, .{});
+        const interaction = try CoreWidgets.button(&builder, Theme.default, &widget_state, button_id, rect, "Play", input, .{});
         try std.testing.expect(!interaction.pressed);
 
         const draw_list = try builder.finish();
@@ -521,7 +533,7 @@ test "CoreWidgets button renders ops and reports pressed" {
         var builder = Builder.init(std.testing.allocator);
         defer builder.deinit();
 
-        const interaction = try CoreWidgets.button(&builder, &widget_state, button_id, rect, "Play", input, .{});
+        const interaction = try CoreWidgets.button(&builder, Theme.default, &widget_state, button_id, rect, "Play", input, .{});
         try std.testing.expect(interaction.pressed);
 
         const draw_list = try builder.finish();

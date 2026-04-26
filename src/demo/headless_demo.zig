@@ -30,14 +30,29 @@ pub fn run() !void {
     std.debug.print("button pressed: {}\n", .{pressed});
 
     const fake_ttf = "not-a-real-ttf";
-    var font = try ui.Font.initTtf(alloc, .{
+    var fonts = ui.FontRegistry.init(alloc);
+    defer fonts.deinit();
+
+    const body = try fonts.addTtf("Body", .{
         .ttf_bytes = fake_ttf,
         .base_px = 16,
         .charset = .ascii,
         .dynamic_glyphs = false,
     });
-    defer font.deinit();
+    const fallback = try fonts.addTtf("Fallback", .{
+        .ttf_bytes = fake_ttf,
+        .base_px = 16,
+        .charset = .latin_1,
+        .dynamic_glyphs = false,
+    });
+    try fonts.setFallback(body, &.{fallback});
 
-    const measured = try font.measure("Play\nQuit");
+    const measured = try ui.Text.measure(&fonts, body, "Play\nQuit");
+    const wrapped = try ui.Text.wrap(alloc, &fonts, body, "Play Settings Quit", 70.0);
+    defer alloc.free(wrapped);
+    const truncated = try ui.Text.truncateWithEllipsis(alloc, &fonts, body, "Very Long Settings Menu", 90.0, "...");
+    defer alloc.free(truncated);
+
     std.debug.print("text size: {d:.1} x {d:.1}\n", .{ measured.width, measured.height });
+    std.debug.print("wrapped lines: {d} truncated: {s}\n", .{ wrapped.len, truncated });
 }

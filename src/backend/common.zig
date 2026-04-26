@@ -1,4 +1,6 @@
+const ScaleState = @import("../core/scale.zig").ScaleState;
+
 pub const RenderOptions = struct {
-    dpi_scale: f32 = 1.0,
-    font_atlas_scale: f32 = 1.0,
+    scale: ScaleState = .{},
+    font_atlas_scale: ?f32 = null,
 };

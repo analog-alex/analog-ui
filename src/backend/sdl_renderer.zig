@@ -3,12 +3,15 @@ const DrawList = @import("../core/draw_list.zig").DrawList;
 const Color = @import("../core/draw_list.zig").Color;
 const Rect = @import("../core/draw_list.zig").Rect;
 const TextAlign = @import("../core/draw_list.zig").TextAlign;
-const Font = @import("../font/font.zig").Font;
+const FontHandle = @import("../core/draw_list.zig").FontHandle;
+const FontRegistry = @import("../font/registry.zig").FontRegistry;
 const utf8 = @import("../font/utf8.zig");
 const RenderOptions = @import("common.zig").RenderOptions;
 const sdl = @import("sdl_shared.zig");
 
 const TexturePage = struct {
+    font_handle: FontHandle,
+    page_index: u16,
     width: u16,
     height: u16,
     texture: *sdl.SDL_Texture,
@@ -26,7 +29,7 @@ pub const RendererBackend = struct {
     renderer: *sdl.SDL_Renderer,
     clip_stack: std.array_list.Managed(sdl.SDL_Rect),
     atlas_pages: std.array_list.Managed(TexturePage),
-    font: ?*Font,
+    font_registry: ?*FontRegistry,
 
     pub fn init(allocator: std.mem.Allocator, renderer: *sdl.SDL_Renderer) !RendererBackend {
         return .{
@@ -34,7 +37,7 @@ pub const RendererBackend = struct {
             .renderer = renderer,
             .clip_stack = std.array_list.Managed(sdl.SDL_Rect).init(allocator),
             .atlas_pages = std.array_list.Managed(TexturePage).init(allocator),
-            .font = null,
+            .font_registry = null,
         };
     }
 
@@ -272,9 +275,12 @@ pub const RendererBackend = struct {
         }
     }
 
-    fn ensurePageTexture(self: *RendererBackend, page_index: usize, width: u16, height: u16) !*sdl.SDL_Texture {
-        if (page_index < self.atlas_pages.items.len) {
-            const existing = &self.atlas_pages.items[page_index];
+    fn ensurePageTexture(self: *RendererBackend, font_handle: FontHandle, page_index: u16, width: u16, height: u16) !*sdl.SDL_Texture {
+        for (self.atlas_pages.items) |*existing| {
+            if (existing.font_handle != font_handle or existing.page_index != page_index) {
+                continue;
+            }
+
             if (existing.width == width and existing.height == height) {
                 return existing.texture;
             }
@@ -287,7 +293,13 @@ pub const RendererBackend = struct {
                 sdl.SDL_DestroyTexture(recreated);
                 return error.SdlRendererError;
             }
-            existing.* = .{ .width = width, .height = height, .texture = recreated };
+            existing.* = .{
+                .font_handle = font_handle,
+                .page_index = page_index,
+                .width = width,
+                .height = height,
+                .texture = recreated,
+            };
             return recreated;
         }
 
@@ -299,8 +311,23 @@ pub const RendererBackend = struct {
             return error.SdlRendererError;
         }
 
-        try self.atlas_pages.append(.{ .width = width, .height = height, .texture = texture });
+        try self.atlas_pages.append(.{
+            .font_handle = font_handle,
+            .page_index = page_index,
+            .width = width,
+            .height = height,
+            .texture = texture,
+        });
         return texture;
+    }
+
+    fn findPageTexture(self: *const RendererBackend, font_handle: FontHandle, page_index: u16) ?TexturePage {
+        for (self.atlas_pages.items) |entry| {
+            if (entry.font_handle == font_handle and entry.page_index == page_index) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     fn uploadDirtyRect(self: *RendererBackend, texture: *sdl.SDL_Texture, page_pixels: []const u8, page_width: u16, dirty: anytype) !void {
@@ -339,41 +366,44 @@ pub const RendererBackend = struct {
         }
     }
 
-    pub fn syncFont(self: *RendererBackend, font: *Font) !void {
-        self.font = font;
+    pub fn syncFonts(self: *RendererBackend, registry: *FontRegistry) !void {
+        self.font_registry = registry;
 
-        var page_index: usize = 0;
-        while (page_index < font.pageCount()) : (page_index += 1) {
-            const size = font.pageSize(page_index);
-            const texture = try self.ensurePageTexture(page_index, size[0], size[1]);
-            const page_pixels = font.pagePixels(page_index);
-            const dirty = font.pageDirtyRects(page_index);
+        var font_index: usize = 0;
+        while (font_index < registry.fontCount()) : (font_index += 1) {
+            const handle = registry.fontHandleAt(font_index);
+            const font = registry.getFont(handle) orelse continue;
 
-            for (dirty) |rect| {
-                try self.uploadDirtyRect(texture, page_pixels, size[0], rect);
+            var page_index: usize = 0;
+            while (page_index < font.pageCount()) : (page_index += 1) {
+                const size = font.pageSize(page_index);
+                const texture = try self.ensurePageTexture(handle, @intCast(page_index), size[0], size[1]);
+                const page_pixels = font.pagePixels(page_index);
+                const dirty = font.pageDirtyRects(page_index);
+
+                for (dirty) |rect| {
+                    try self.uploadDirtyRect(texture, page_pixels, size[0], rect);
+                }
+                font.clearPageDirtyRects(page_index);
             }
-            font.clearPageDirtyRects(page_index);
         }
     }
 
-    fn drawGlyph(self: *RendererBackend, font: *const Font, codepoint: u21, x: *f32, baseline: f32, color: Color, inv_font_scale: f32) !void {
-        const glyph = font.getGlyph(codepoint) orelse {
-            x.* += (font.base_px * 0.55) * inv_font_scale;
-            return;
-        };
+    fn drawGlyph(self: *RendererBackend, font_handle: FontHandle, codepoint: u21, x: *f32, baseline: f32, color: Color, inv_font_scale: f32) !void {
+        const registry = self.font_registry orelse return;
+        const resolved = (try registry.resolveGlyph(font_handle, codepoint)) orelse return;
+
+        const glyph = resolved.glyph;
 
         if (glyph.size_px[0] == 0 or glyph.size_px[1] == 0) {
             x.* += glyph.advance_px * inv_font_scale;
             return;
         }
 
-        const page_index: usize = glyph.atlas_page;
-        if (page_index >= self.atlas_pages.items.len) {
+        const texture_page = self.findPageTexture(resolved.handle, glyph.atlas_page) orelse {
             x.* += glyph.advance_px * inv_font_scale;
             return;
-        }
-
-        const texture_page = self.atlas_pages.items[page_index];
+        };
 
         var src = sdl.SDL_FRect{
             .x = glyph.uv_min[0] * @as(f32, @floatFromInt(texture_page.width)),
@@ -393,15 +423,14 @@ pub const RendererBackend = struct {
         x.* += glyph.advance_px * inv_font_scale;
     }
 
-    fn measureLineWidth(font: *Font, line: []const u8, inv_font_scale: f32) !f32 {
-        const measured = try font.measure(line);
+    fn measureLineWidth(registry: *FontRegistry, font_handle: FontHandle, line: []const u8, inv_font_scale: f32) !f32 {
+        const measured = try registry.measureText(font_handle, line);
         return measured.width * inv_font_scale;
     }
 
-    fn drawTextRun(self: *RendererBackend, rect: Rect, text: []const u8, alignment: TextAlign, color: Color, font_atlas_scale: f32) !void {
-        const font = self.font orelse {
-            return;
-        };
+    fn drawTextRun(self: *RendererBackend, rect: Rect, text: []const u8, font_handle: FontHandle, alignment: TextAlign, color: Color, font_atlas_scale: f32) !void {
+        const registry = self.font_registry orelse return;
+        const base_font = registry.getFont(font_handle) orelse return;
 
         const inv_font_scale = if (std.math.isFinite(font_atlas_scale) and font_atlas_scale > 0.0)
             1.0 / font_atlas_scale
@@ -409,7 +438,7 @@ pub const RendererBackend = struct {
             1.0;
 
         const first_line_end = std.mem.indexOfScalar(u8, text, '\n') orelse text.len;
-        var pen_x = alignedLineX(rect, try measureLineWidth(font, text[0..first_line_end], inv_font_scale), alignment);
+        var pen_x = alignedLineX(rect, try measureLineWidth(registry, font_handle, text[0..first_line_end], inv_font_scale), alignment);
         var pen_y = rect.y;
         var line_start: usize = 0;
 
@@ -418,25 +447,34 @@ pub const RendererBackend = struct {
             if (cp == '\n') {
                 line_start = it.index;
                 const line_end = if (std.mem.indexOfScalarPos(u8, text, line_start, '\n')) |end| end else text.len;
-                pen_x = alignedLineX(rect, try measureLineWidth(font, text[line_start..line_end], inv_font_scale), alignment);
-                pen_y += (font.base_px * 1.2) * inv_font_scale;
+                pen_x = alignedLineX(rect, try measureLineWidth(registry, font_handle, text[line_start..line_end], inv_font_scale), alignment);
+                pen_y += (base_font.base_px * 1.2) * inv_font_scale;
                 continue;
             }
-            try self.drawGlyph(font, cp, &pen_x, pen_y, color, inv_font_scale);
+            try self.drawGlyph(font_handle, cp, &pen_x, pen_y, color, inv_font_scale);
         }
     }
 
     pub fn render(self: *RendererBackend, draw_list: DrawList, opts: RenderOptions) !void {
         try draw_list.validateContract();
 
-        const dpi_scale = if (std.math.isFinite(opts.dpi_scale) and opts.dpi_scale > 0.0)
-            opts.dpi_scale
+        const effective_scale = opts.scale.effective();
+        const dpi_scale = if (std.math.isFinite(effective_scale) and effective_scale > 0.0) effective_scale else 1.0;
+        const font_atlas_scale = if (opts.font_atlas_scale) |atlas_scale|
+            if (std.math.isFinite(atlas_scale) and atlas_scale > 0.0) atlas_scale else 1.0
         else
-            1.0;
-        const font_atlas_scale = if (std.math.isFinite(opts.font_atlas_scale) and opts.font_atlas_scale > 0.0)
-            opts.font_atlas_scale
-        else
-            1.0;
+            dpi_scale;
+
+        if (self.font_registry) |registry| {
+            for (draw_list.ops) |op| {
+                switch (op) {
+                    .text_run => |d| try registry.ensureText(d.font_handle, d.text),
+                    else => {},
+                }
+            }
+            try self.syncFonts(registry);
+        }
+
         if (@hasDecl(sdl.c, "SDL_SetRenderScale")) {
             if (!sdl.c.SDL_SetRenderScale(self.renderer, dpi_scale, dpi_scale)) {
                 return error.SdlRendererError;
@@ -471,7 +509,7 @@ pub const RendererBackend = struct {
                     try self.drawRoundedStrokeRect(d.rect, d.thickness, d.radius);
                 },
                 .text_run => |d| {
-                    try self.drawTextRun(d.rect, d.text, d.alignment, d.color, font_atlas_scale);
+                    try self.drawTextRun(d.rect, d.text, d.font_handle, d.alignment, d.color, font_atlas_scale);
                 },
                 .image => |d| {
                     const tex_ptr = @as(?*sdl.SDL_Texture, if (d.image_id == 0) null else @ptrFromInt(d.image_id));

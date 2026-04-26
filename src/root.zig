@@ -7,7 +7,13 @@ pub const Builder = @import("core/draw_list.zig").Builder;
 pub const Context = @import("core/context.zig").Context;
 pub const FrameApi = @import("core/frame_api.zig");
 pub const Theme = @import("core/theme.zig").Theme;
+pub const FontRole = @import("core/theme.zig").FontRole;
+pub const ScaleState = @import("core/scale.zig").ScaleState;
+pub const clampUiScale = @import("core/scale.zig").clampUiScale;
 pub const Font = @import("font/font.zig").Font;
+pub const FontRegistry = @import("font/registry.zig").FontRegistry;
+pub const Text = @import("font/text.zig");
+pub const FontHandle = @import("core/draw_list.zig").FontHandle;
 pub const WidgetState = @import("core/widgets.zig").WidgetState;
 pub const CoreWidgets = @import("core/widgets.zig").CoreWidgets;
 pub const ButtonOptions = @import("core/widgets.zig").ButtonOptions;
@@ -42,4 +48,8 @@ test "version is loaded correctly" {
 
 test "menu integration scenarios are validated" {
     _ = @import("core/menu_integration.zig");
+}
+
+test "multi-font demo scenario is validated" {
+    _ = @import("demo/multi_font_demo.zig");
 }
