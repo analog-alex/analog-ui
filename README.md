@@ -212,3 +212,16 @@ For this repository itself, SDL3 linking is only done for the local window demo 
 - Clay is developed upstream at [nicbarker/clay](https://github.com/nicbarker/clay).
 - Clay and `stb_truetype` implementations are compiled as C sources through the `analog_ui` module.
 - API is still evolving toward the full v1 scope in the design document.
+
+## Wiki
+
+For a small, repo-versioned documentation set, start here:
+
+- `docs/wiki/Get-Started.md`
+- `docs/wiki/Home.md`
+
+Recommended entry pages:
+
+- `docs/wiki/Frame-Loop.md`
+- `docs/wiki/Host-Integration.md`
+- `docs/wiki/Widgets-and-Menus.md`
