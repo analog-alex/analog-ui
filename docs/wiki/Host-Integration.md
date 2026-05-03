@@ -13,6 +13,8 @@ The practical contract between a host app and `analog_ui`.
 
 This library is explicit about ownership. If your app already owns SDL setup and lifetime, this is the page that tells you where the library begins and ends.
 
+If you are still finding your way around the repo, start with [Get Started](Get-Started.md) before this page.
+
 ## Host Owns
 
 - `SDL_Init` and `SDL_Quit`
@@ -49,6 +51,25 @@ SDL init
 
 The full walkthrough is already documented in `docs/host_app_integration.md`.
 
+## From Demo To App
+
+Use `src/demo/window_demo.zig` as the integration skeleton, not as code to copy blindly.
+
+Carry over these ideas:
+
+- host-created SDL objects
+- one `RendererBackend` tied to the host renderer
+- one long-lived `FontRegistry`
+- app-owned state for screens/settings
+- a predictable frame loop that ends in `FrameApi.renderFrame`
+
+Replace these demo-specific pieces:
+
+- hard-coded demo font path
+- fixed window title and default size
+- demo menu state and sample screens
+- simple `SDL_Delay` frame pacing
+
 ## Per-Frame Responsibilities
 
 1. Poll events.
@@ -65,6 +86,7 @@ The full walkthrough is already documented in `docs/host_app_integration.md`.
 - Keep `font_atlas_scale` aligned with atlas rasterization scale.
 - Deinit backend resources before tearing down the underlying SDL renderer or device.
 - Avoid double-linking SDL in host projects.
+- Prefer `RendererBackend` for first integration; treat `GpuBackend` as future-facing scaffold.
 
 ## Best Reference
 

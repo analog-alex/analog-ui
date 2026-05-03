@@ -61,6 +61,8 @@ poll SDL events
   -> present renderer
 ```
 
+For the fastest onboarding path, read this page after [Get Started](Get-Started.md).
+
 ## Scale Handling
 
 Scaling is explicit.

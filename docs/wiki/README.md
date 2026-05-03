@@ -1,12 +1,12 @@
 # Wiki
 
-Start with [Home](Home.md).
+Start with [Get Started](Get-Started.md), then use [Home](Home.md) as the broader wiki hub.
 
 This folder is a compact, versioned wiki for the current `analog_ui` codebase.
 
 ## Main Pages
 
-- [Get Started](Get-Started.md)
+- [Get Started](Get-Started.md): first run and first integration flow
 - [Architecture](Architecture.md)
 - [Frame Loop](Frame-Loop.md)
 - [Fonts and Text](Fonts-and-Text.md)

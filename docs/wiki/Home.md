@@ -2,6 +2,8 @@
 
 Small, versioned documentation for integrating and understanding `analog_ui`.
 
+If you only read one page, read [Get Started](Get-Started.md).
+
 ## Quick Nav
 
 - [Get Started](Get-Started.md)
@@ -26,11 +28,11 @@ Today, the strongest path in this repo is:
 
 ## Start Here
 
-- New to the repo: [Get Started](Get-Started.md)
-- Integrating into an app: [Host Integration](Host-Integration.md)
-- Understanding the main per-frame flow: [Frame Loop](Frame-Loop.md)
-- Building menus and buttons: [Widgets and Menus](Widgets-and-Menus.md)
-- Understanding render boundaries: [Rendering and Backends](Rendering-and-Backends.md)
+- First run and first integration: [Get Started](Get-Started.md)
+- Host ownership and SDL setup: [Host Integration](Host-Integration.md)
+- The per-frame loop: [Frame Loop](Frame-Loop.md)
+- Menu UI and buttons: [Widgets and Menus](Widgets-and-Menus.md)
+- Rendering boundary and backend status: [Rendering and Backends](Rendering-and-Backends.md)
 
 ## Core Concepts
 
@@ -54,8 +56,8 @@ host app
 ## Suggested Reading Order
 
 1. [Get Started](Get-Started.md)
-2. [Frame Loop](Frame-Loop.md)
-3. [Host Integration](Host-Integration.md)
+2. [Host Integration](Host-Integration.md)
+3. [Frame Loop](Frame-Loop.md)
 4. [Widgets and Menus](Widgets-and-Menus.md)
 5. [Fonts and Text](Fonts-and-Text.md)
 6. [Rendering and Backends](Rendering-and-Backends.md)

@@ -217,11 +217,11 @@ For this repository itself, SDL3 linking is only done for the local window demo 
 
 For a small, repo-versioned documentation set, start here:
 
+- `docs/wiki/Get-Started.md`
 - `docs/wiki/Home.md`
 
 Recommended entry pages:
 
-- `docs/wiki/Get-Started.md`
 - `docs/wiki/Frame-Loop.md`
 - `docs/wiki/Host-Integration.md`
 - `docs/wiki/Widgets-and-Menus.md`

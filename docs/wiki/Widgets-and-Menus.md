@@ -5,6 +5,7 @@ How the repo currently builds interactive menu-style UI.
 ## Quick Nav
 
 - [Home](Home.md)
+- [Get Started](Get-Started.md)
 - [Frame Loop](Frame-Loop.md)
 - [Fonts and Text](Fonts-and-Text.md)
 - [API Map](API-Map.md)
@@ -63,6 +64,18 @@ It demonstrates:
 - button styling through theme and options
 - state transitions between screens
 - background/theme selection state
+
+## Quick Menu Recipe
+
+1. Define a `State` struct for screen-level state.
+2. Define stable IDs at file scope.
+3. Define focus item arrays for each screen.
+4. Compute rectangles with `Layout` helpers.
+5. Push background/panel draw ops.
+6. Use `CoreWidgets` for labels, separators, and buttons.
+7. Mutate `State` only from button/nav results.
+
+That recipe is exactly what `src/demo/menu_screens.zig` demonstrates.
 
 ## Current Widget Set
 
